@@ -11,12 +11,10 @@ Next, set up a virtual machine. I wont detail there here but see this guide http
 Now we will install LinuxGSM:
 1) Ensure write premissions to /opt 
 2) Follow these instructions to get LinuxGSM - http://gameservermanagers.com/lgsm/arkserver/#gettingstarted
-	i) You will now have /opt/linuxgsm.sh, /opt/lgsm, and /opt/arkserver
+3) You will now have /opt/linuxgsm.sh, /opt/lgsm, and /opt/arkserver
 NOTE: I no longer use Steam GUI for server updates, but if someone takes that route here is a link to fix the Steam app not launching in Ubuntu https://askubuntu.com/questions/771032/steam-not-opening-in-ubuntu-16-04-lts#771507.
 
-3) Adjust configuration files per - https://github.com/GameServerManagers/LinuxGSM/wiki/LinuxGSM-Config-Files
-	i) I have provided my config for reference.
-	ii) The documentation talks about having an instance config, for me there already was an "arkserver.cfg" which is what I edited.
+4) Adjust configuration files per - https://github.com/GameServerManagers/LinuxGSM/wiki/LinuxGSM-Config-Files. The documentation talks about having an instance config, for me there already was an "/opt/lgsm/config-lgsm/arkserver/arkserver.cfg" instance config which is what I edited.
 
 With LGSM setup and configuration set we can install the Dedicated Server, run:
 ```
@@ -26,9 +24,11 @@ This will install SteamCMD and the Dedicated server. Running \`/opt/arkserver\' 
 ```
 /opt/arkserver st
 ```
-After a few minutes your server should be available. Some may not see it on the ARK in-game server list so you if you message them via Steam with a link like \`steam://connect/<external-ip>:27015\' people should be able to connect - this link also works if entered in IE/Edge but not Chrome.... Note: I have not found a better work around for people not finding my server via in-game 'Join Ark' option. 
+After a few minutes your server should be available. Some may not see it on the ARK in-game server list so you if you message them via Steam with a link like \`steam://connect/\<external-ip\>:27015\' people should be able to connect - this link also works if entered in IE/Edge but not Chrome.... Note: I have not found a better work around for people not finding my server via in-game 'Join Ark' option. 
 
 On your gaming rig you will add the scripts as described below and will need the putty tools plink.exe and pscp.exe (puttygen.exe is good to use for generating ssh keys)
+
+On the server add the Dunto's python rcon client to /opt. So long as it is there and executable it will get referenced. If you want it somewhere else edit the ark_restart_v3.sh to point to the new location. Still working on logic to handle errors gracefully should the rcon client not be able to connect, not executable, etc.
 
 
 ## Using Scripts
@@ -38,6 +38,14 @@ MAKE SURE TO EDIT .SH AND .PS1 SCRIPT VARIABLES FOR YOUR INSTALL
 My idea of managing the mods took several iterations and trial and error. Eventually I arrived at my posted scripts which should take minimal customization to work for anyone (be gentle its my first time writing code for a public audience).
 
 The idea is that the powershell script, arkuxserv-v4.ps1, will live on your gaming rig. I typically run the ark-mod-probev2.ps1 first to see if there is anything to do, mainly habit from this process of experimentation. The arkserv_restart_v3.sh I have kept in my user home directory on the lubuntu server since I chose to use that user instead of another per the set up instructions.
+
+* When Steam does a mod up date launch ARK and it will show progress of mod installation in the bottom right corner. Once that is completed launch the powershell script and everything should work to copy the designated mods that have updated and to restart the server.
+
+## Troubleshooting
+
+* Use \`netstat -puln 2\>/dev/null | grep ShooterGame\' to check status of server. When you have two lines with one showing ':7778' then the server should be accessible.
+* Use \`ps -ef | grep -i ShooterGame\' to see that there are two processess, one if which is a tmux session.
+* Report errors and I'll be happy to address them. I tried to anticipate as many scenarios as possible but like I said, this is a first for me.
 
 ## Authors
 
