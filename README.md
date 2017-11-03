@@ -44,8 +44,12 @@ The idea is that the powershell script, arkuxserv-v4.ps1, will live on your gami
 ## Troubleshooting
 
 * Use \`netstat -puln 2\>/dev/null | grep ShooterGame\' to check status of server. When you have two lines with one showing ':7778' then the server should be accessible.
-* Use \`ps -ef | grep -i ShooterGame\' to see that there are two processess, one if which is a tmux session.
+* Use \`ps -ef | grep -i ShooterGame\' to see that there are two processess, one of which is a tmux session.
 * Report errors and I'll be happy to address them. I tried to anticipate as many scenarios as possible but like I said, this is a first for me.
+
+## To-Do
+
+* Setup and document Discord notifications
 
 ## Authors
 
@@ -59,4 +63,4 @@ Ekagrah - ekagrah.gamer@gmail.com, ekagrah@icloud.com
 
 * Would be nowhere without alien.system's guide, highly recommend reading to understand your dedicated server - http://steamcommunity.com/sharedfiles/filedetails/?id=656433788
 * Dunto's python rcon client - see https://gist.github.com/Dunto/e310c00e84b98e0e90dd
-
+* Linux Game Server Manager - their method was what I was looking for to address the process being killed after the plink session closed (this is why I stopped using the Steam UI to do updates). They have done some solid work!
