@@ -1,4 +1,5 @@
 # change powershell execution policy via: 
+# https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-executionpolicy?view=powershell-5.1
 # Dependancies:
 # 1 - Pscp and plink (both can use key via puttygen)
 # 2 - Desired mods subscribed, and Ark launched (places anything downloaded into Mods folder)
