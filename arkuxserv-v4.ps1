@@ -60,7 +60,7 @@ Write-Host "One mod updated, will be restarting server."
 &${puttyparent}\PLINK.EXE -ssh -i ${puttyparent}\ubuntu.ppk ${user}@${server_ip} /home/${user}/arkserv_restart_v3.sh
 } elseif ($count -gt 1) {
 Write-Host "$count mods updated, will be restarting server."
-&${puttyparent}\PLINK.EXE ${puttyparent}\PLINK.EXE -ssh -i ${puttyparent}\ubuntu.ppk ${user}@${server_ip} /home/${user}/arkserv_restart_v3.sh
+&${puttyparent}\PLINK.EXE -ssh -i ${puttyparent}\ubuntu.ppk ${user}@${server_ip} /home/${user}/arkserv_restart_v3.sh
 } else {
 Write-Host "No mods updated, NOT restarting server."
 }
