@@ -49,20 +49,20 @@ fi
 checkplayers () {
 servbroadcast=true
 while [[ $servbroadcast == 'true' ]]; do 
-	python /opt/rcon_client.py 'ServerChat Server going down for mod patching in 3 minutes.'
+	python3 /opt/rcon_client_v2.py 'ServerChat Server going down for mod patching in 3 minutes.'
 	echo 'Sending broadcast to server'
 	servbroadcast=false
 done
 chktimeout=12
-if [[ $( echo $(python /opt/rcon_client.py 'listplayers') ) == 'No Players Connected' ]]; then
+if [[ $( echo $(python3 /opt/rcon_client_v2.py 'listplayers') ) == 'No Players Connected' ]]; then
 	echo 'No Players Connected' 2>1
 else
-	until [[ $( echo $(python /opt/rcon_client.py 'listplayers') ) == 'No Players Connected' ]]; do
+	until [[ $( echo $(python3 /opt/rcon_client_v2.py 'listplayers') ) == 'No Players Connected' ]]; do
 		if [[ $chktimeout -eq 0 ]]; then
 			echo -e "\e[93;41mTimeout waiting for users to log off\e[00;39m"
 			exit 2
 		fi
-		python /opt/rcon_client.py 'listplayers'
+		python3 /opt/rcon_client_v2.py 'listplayers'
 		sleep 20
 		let chktimeout-=1
 	done
@@ -101,7 +101,7 @@ if [[ $( (( $(\date +%s) - $(stat -c %Y "${arkdir}"/ShooterGame/Saved/SavedArks/
 	downserver
 	upserver
 else
-	python /opt/rcon_client.py 'saveworld'
+	python3 /opt/rcon_client_v2.py 'saveworld'
 	if [[ $( (( $(\date +%s) - $(stat -c %Y "${arkdir}"/ShooterGame/Saved/SavedArks/$map.ark) )) ) -lt 60 ]]; then
 		downserver
 		upserver
@@ -113,7 +113,7 @@ servstatus='down'
 upcounter=12
 until [[ "${ckservup}" == 'true' ]]; do
 	if [[ $upcounter -eq 0 ]]; then
-		echo "Server not sarted yet, manually monitor status..."
+		echo "Server not ready yet, manually monitor status..."
 		exit 3
 	fi
 	while read -r line ; do case "$line" in udp*:7778*) export servstatus='up' ;; esac ; done < <(\netstat -puln 2>/dev/null | grep ShooterGame)
