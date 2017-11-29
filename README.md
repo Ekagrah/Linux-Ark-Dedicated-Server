@@ -1,12 +1,12 @@
 # Linux ARK Survival Evolved Dedicated Server
 
-When we started this crazy idea to run our own dedicated server we knew very little. We manually managed copy mods, this was running on a Windows machine, and my friend wasn't fond of administering the server. We learned a lot and as a system administrator I was a better fit. So when Ragnarok was released I set up my own server on Lubuntu16.04 setup a dummy steam account so I could run easily access server updates. I heard about SteamCMD but just didn't want to deal with trying to figure that out. I decided it was more fun to write my own scripts and figured my work may be helpful for someone else.
+When we started this crazy idea to run our own dedicated server we knew very little. We manually managed copying of mods, this was running on a Windows machine, and my friend wasn't fond of administering the server. We learned a lot and as a system administrator I was a better fit. So when Ragnarok was released I set up my own server on Lubuntu 16.04, setup a dummy steam account so I could run easily access server updates. We had heard about SteamCMD but just didn't want to deal with trying to figure that out. I decided it was more fun to write my own scripts and figured my work may be helpful for someone else.
 
 ## Getting Started
 
 First, after actually purchasing the game, decide what mods you want - this can be difficult as there is a lot of content out there. Here is a link (http://steamcommunity.com/sharedfiles/filedetails/?id=847707731) to what I use and you will see the list in my code.
 
-Next, set up a virtual machine. I wont detail there here but see this guide https://linus.nci.nih.gov/bdge/installUbuntu.html (provided by National Cancer Institute). I use lvm in a custom set up with about 16GB provided to /opt.
+Next, set up a virtual machine. I wont detail that here but see this guide https://linus.nci.nih.gov/bdge/installUbuntu.html (provided by National Cancer Institute). I use lvm with about 16GB provided to /opt.
 
 Now we will install LinuxGSM:
 1) Ensure write premissions to /opt 
@@ -61,6 +61,6 @@ Ekagrah - ekagrah.gamer@gmail.com, ekagrah@icloud.com
 
 ## Acknowledgments
 
-* Would be nowhere without alien.system's guide, highly recommend reading to understand your dedicated server - http://steamcommunity.com/sharedfiles/filedetails/?id=656433788
-* Dunto's python rcon client - see https://gist.github.com/Dunto/e310c00e84b98e0e90dd
+* Would be nowhere without alien.system's guide, highly recommend reading to really understand your dedicated server - http://steamcommunity.com/sharedfiles/filedetails/?id=656433788
+* Dunto's python rcon client - see https://gist.github.com/Dunto/e310c00e84b98e0e90dd (which I have forked)
 * Linux Game Server Manager - their method was what I was looking for to address the process being killed after the plink session closed (this is why I stopped using the Steam UI to do updates). They have done some solid work!
