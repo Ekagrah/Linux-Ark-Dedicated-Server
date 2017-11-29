@@ -12,8 +12,6 @@ Now we will install LinuxGSM:
 1) Ensure write premissions to /opt 
 2) Follow these instructions to get LinuxGSM - http://gameservermanagers.com/lgsm/arkserver/#gettingstarted
 3) You will now have /opt/linuxgsm.sh, /opt/lgsm, and /opt/arkserver
-NOTE: I no longer use Steam GUI for server updates, but if someone takes that route here is a link to fix the Steam app not launching in Ubuntu https://askubuntu.com/questions/771032/steam-not-opening-in-ubuntu-16-04-lts#771507.
-
 4) Adjust configuration files per - https://github.com/GameServerManagers/LinuxGSM/wiki/LinuxGSM-Config-Files. The documentation talks about having an instance config, for me there already was an "/opt/lgsm/config-lgsm/arkserver/arkserver.cfg" instance config which is what I edited.
 
 With LGSM setup and configuration set we can install the Dedicated Server, run:
@@ -46,6 +44,7 @@ The idea is that the powershell script, arkuxserv-v4.ps1, will live on your gami
 * Use \`netstat -puln 2\>/dev/null | grep ShooterGame\' to check status of server. When you have two lines with one showing ':7778' then the server should be accessible.
 * Use \`ps -ef | grep -i ShooterGame\' to see that there are two processess, one of which is a tmux session.
 * Report errors and I'll be happy to address them. I tried to anticipate as many scenarios as possible but like I said, this is a first for me.
+* I no longer use Steam GUI for server updates, but if someone takes that route here is a link to fix the Steam app not launching in Ubuntu https://askubuntu.com/questions/771032/steam-not-opening-in-ubuntu-16-04-lts#771507.
 
 ## To-Do
 
