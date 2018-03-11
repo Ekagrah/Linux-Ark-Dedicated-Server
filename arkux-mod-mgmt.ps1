@@ -57,10 +57,10 @@ if ($count -eq 1) {
 Write-Host "One mod updated, will be restarting server."
 # Could chose to load a Putty saved session; use -load "<session-name>"
 #${puttyparent}\PUTTY.EXE -ssh -t -load "ArkServPriv"
-&${puttyparent}\PLINK.EXE -ssh -i ${puttyparent}\ubuntu.ppk ${user}@${server_ip} /home/${user}/arkserv_restart_v3.sh
+&${puttyparent}\PLINK.EXE -ssh -i ${puttyparent}\ubuntu.ppk ${user}@${server_ip} /home/${user}/arkserv_mgmt.sh restart
 } elseif ($count -gt 1) {
 Write-Host "$count mods updated, will be restarting server."
-&${puttyparent}\PLINK.EXE -ssh -i ${puttyparent}\ubuntu.ppk ${user}@${server_ip} /home/${user}/arkserv_restart_v3.sh
+&${puttyparent}\PLINK.EXE -ssh -i ${puttyparent}\ubuntu.ppk ${user}@${server_ip} /home/${user}/arkserv_mgmt.sh restart
 } else {
 Write-Host "No mods updated, NOT restarting server."
 }
