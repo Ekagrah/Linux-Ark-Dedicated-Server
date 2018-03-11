@@ -19,6 +19,7 @@ sudo apt-get install steamcmd
 /usr/games/steamcmd +login anonymous +force_install_dir /opt/game +app_update 376030 public validate +quit
 ```
 This same command is used to install and update the dedicated server
+
 3) Launch steamcmd once for it to update
 ```
 /usr/games/steamcmd
