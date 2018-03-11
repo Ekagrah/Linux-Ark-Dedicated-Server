@@ -1,0 +1,8 @@
+# m h  dom mon dow   command
+#0 3 * * */2 /home/derekk/arkserv_restart_v3.sh >> /opt/serverfiles/ShooterGame/Saved/Logs/personal-script.log
+#0 2 * * 1 /opt/rcon_client_v2.py destroywilddinos >> /opt/serverfiles/ShooterGame/Saved/Logs/personal-script.log
+
+0 3 * * */2 /opt/bin/arkserv_mgmt.sh restart | mail -s "Cron: Ark Server restarted" servmana 
+0 2 * * 1 /opt/bin/arkserv_dinoreset.sh
+* * * * * /opt/bin/arkserv_ru.sh
+0 9,16,23 * * * /opt/bin/arkcustomstats.sh
