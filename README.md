@@ -27,7 +27,7 @@ steam> exit
 
 On your gaming rig you will add the scripts as described below and will need the putty tools plink.exe and pscp.exe (puttygen.exe is good to use for generating ssh keys)
 
-On the server add the python rcon client and \*.sh scripts to /opt/bin. If you want them somewhere else edit the arkserv_dinoreset.sh, arkserv_mgmt.sh, and arkcustomstats.sh to point to the new location. Still working on logic to handle errors gracefully within script should the rcon client not be able to connect.
+On the server add the python rcon client and \*.sh scripts to /opt/bin. If you want them somewhere else edit the arkserv_dinoreset.sh, arkserv_mgmt.sh, all powershell scripts and arkcustomstats.sh to point to the new location. Still working on logic to handle errors gracefully within script should the rcon client not be able to connect.
 
 Next you can customize the game experience using the Game.ini and GameUserSettings.ini found in the directory where you installed the dedicated server. I have generaly had to launch the server once to get all the rest of the folders auto created. Example of where to find those files: /opt/game/ShooterGame/Saved/Config/LinuxServer/
 
@@ -38,7 +38,7 @@ MAKE SURE TO EDIT .SH AND .PS1 SCRIPT VARIABLES FOR YOUR INSTALL
 
 My idea of managing the mods took several iterations and trial and error. Eventually I arrived at my posted scripts which should take minimal customization to work for anyone (be gentle its my first time writing code for a public audience).
 
-The idea is that the powershell script, arkuxserv.ps1, will live on your gaming rig and be run from there when mods update. I typically run the ark-mod-probe.ps1 first to see if there is anything to do, mainly habit from this process of experimentation. I used the arkuxserv_initialize.ps1 to get all the mods to the server when setting it up.
+The idea is that the powershell script, arkux-mod-mgmt.ps1, will live on your gaming rig and be run from there when mods update. I typically run the ark-mod-probe.ps1 first to see if there is anything to do, mainly habit from this process of experimentation. I used the arkuxserv_initialize.ps1 to get all the mods to the server when setting it up.
 
 When Steam does a mod update, launch ARK and it will show progress of mod installation in the bottom right corner. Once that is completed launch the powershell script and everything should work to copy to the server any of the specified mods that have updated then to restart the server.
 
