@@ -1,5 +1,6 @@
 #!/bin/bash
 ## I've typically placed scripts in /opt/bin
+## https://steamdb.info/app/376030
 
 curr_date="$( \date +%b%d_%H-%M )"
 ############
@@ -7,17 +8,25 @@ curr_date="$( \date +%b%d_%H-%M )"
 PYVERS="python3"
 PYRCON='/opt/bin/rcon_client_v2.py'
 arkdir='/opt/game'
-savedir="/home/$USER/Documents/arksavedata/"${curr_date}""
+savedir="/home/$USER/arksavedata/"${curr_date}""
+map="Aberration_P"
+nplayers="10"
+serv_port="7777"
+query_port="27015"
+rcon_active="True"
+rcon_port="27020"
 #optional email or mail alias
 EMAIL="servmana"
 ############
 
 if [[ ! -e ${PYRCON} ]] ; then echo "Value for PYRCON for the python rcon tool does not seem to exist" ; exit 2 ; fi
+serv_port_a="$(( ${serv_port} + 1 ))"
 
 USAGE () {
 echo -e "\nUsage: $0 <option>
 \tFor the time being I am only accepting one per run:
 \tstart\tStarts the game server
+\tstop\tStops game server
 \tmonitor\tReports back if server is running and accessible
 \tupdate\tChecks for update to dedicated server
 \t-s\tMakes a copy of server config files.
@@ -25,6 +34,7 @@ echo -e "\nUsage: $0 <option>
 }
 
 upserver () {
+alt_query_port=$(( ${query_port} + 1 ))
 tmux list-session 2>/dev/null | cut -d \: -f 1 | while read -r line ; do
 	if [[ ${line} == 'arkserver' ]]; then
 		tmux kill-session -t arkserver
@@ -33,7 +43,7 @@ tmux list-session 2>/dev/null | cut -d \: -f 1 | while read -r line ; do
 done
 	if [[ $( pgrep -x ShooterGameServ 2>/dev/null) -eq '' ]] ; then
 		echo "Starting Ark Server."
-		tmux new-session -d -x 23 -y 80 -s arkserver /opt/game/ShooterGame/Binaries/Linux/ShooterGameServer "Aberration_P?listen?MaxPlayers=10?QueryPort=27015?RCONEnabled=True?RCONPort=32330?Port=7777?AllowRaidDinoFeeding=True?ForceFlyerExplosives=True -USEALLAVAILABLECORES -usecache -game -servergamelog -server -log"
+		tmux new-session -d -x 23 -y 80 -s arkserver /opt/game/ShooterGame/Binaries/Linux/ShooterGameServer "${map}?listen?MaxPlayers=${nplayers}?QueryPort=${query_port}?RCONEnabled=${rcon_active}?RCONPort=${rcon_port}?Port=${serv_port}?AllowRaidDinoFeeding=True?ForceFlyerExplosives=True -USEALLAVAILABLECORES -usecache -servergamelog"
 		fi
 }
 
@@ -42,18 +52,20 @@ local chkservup='false'
 local servstatus='down'
 local upcounter=12
 local MAIL_TMP="$(mktemp)"
+if [[ -n $( pgrep -x ShooterGameServ 2>/dev/null) ]]; then
+	echo -e "Server is running"
+fi
 until [[ "${chkservup}" == 'true' ]]; do
 	if [[ $upcounter -eq 0 ]]; then
 		echo "Server not ready yet, manually monitor status..."
 		if [[ -x usr/bin/mail ]] ; then
-		mail -s "ARK Server not running after 4 minutes" ${EMAIL} < ${MAIL_TMP}
+		mail -s "ARK Server not accessible after 4 minutes" ${EMAIL} < ${MAIL_TMP}
 		fi
 		exit 3
 	fi
 	#check that the final port is up
-	while read -r line ; do case "$line" in udp*:7778*) export servstatus='up' ;; esac ; done < <(\netstat -puln 2>/dev/null | grep ShooterGame)
+	while read -r line ; do case "$line" in udp*:${serv_port_a}*) export servstatus='up' ;; esac ; done < <(\netstat -puln 2>/dev/null | grep ShooterGame)
 	if [[ "${servstatus}" == 'up' ]]; then 
-	#echo -e "\e[35mServer is ready.\e[00;39m"
 	echo "Server is ready"
 	chkservup='true'; break ; fi
 	echo "Waiting on server..."
@@ -66,7 +78,6 @@ fnc_update () {
 local tmpfile="$(mktemp)"
 #update dedicated server
 if [[ ${do_update} == true ]] ; then 
-# ~/.steam/steamcmd/package/*
 # this is slow and times out occasionally
 	local upd_timeout=5
 	while true ;do
@@ -84,9 +95,8 @@ if [[ ${do_update} == true ]] ; then
 	done
 else
 echo "No update" 
-#> /dev/null
-fi
 exit 0
+fi
 }
 
 fnc_chkupdate () {
@@ -122,7 +132,6 @@ if [[ $( echo $(${PYVERS} ${PYRCON} listplayers) ) == 'No Players Connected' ]];
 else
 	until [[ $( echo $(${PYVERS} ${PYRCON} listplayers) ) == 'No Players Connected' ]]; do
 		if [[ $chktimeout -eq 0 ]]; then
-			#echo -e "\e[93;41mTimeout waiting for users to log off\e[00;39m"
 			echo "Timeout waiting for users to log off"
 			exit 2
 		fi
@@ -138,7 +147,6 @@ if [[ $( pgrep -x ShooterGameServ 2>/dev/null) -eq '' ]]; then
 	echo 'Server does not seem to be running...please verify.'
 	exit 4
 fi
-#echo -e "\e[35mTaking server down...\e[00;39m"
 echo "Taking server down..."
 tmux send-keys C-c -t arkserver
 local downcounter=24
@@ -185,25 +193,21 @@ else
 fi
 }
 
-fnc_updmod () {
-}
-
 #==============#
 if [[ $# -gt 1 ]]; then
 	USAGE
 	exit 1
 fi
 
-map="$( ps -efH --sort=+ppid | grep "[S]hooterGameServer" | grep -v tmux | awk '{print $9}' | awk -F '?' '{print $1}' )"
-
 case $1 in
 	-s) fnc_dosave ;;
 	-h) USAGE ;;
 	start) upserver ; fnc_monitor ;;
+	stop) downserver ;;
 	monitor) fnc_monitor ;;
-	update) fnc_chkupdate ; fnc_update ;;
-	restart) fnc_restart ;;
-	updmod) fnc_updmod ;;
+	update) fnc_chkupdate ; fnc_update ; fnc_restart ; fnc_monitor ;;
+	restart) fnc_restart ; fnc_monitor ;;
+	updmod) fnc_updmod ; fnc_restart ; fnc_monitor ;;
 	*) USAGE ; exit 1 ;;
 esac
 
