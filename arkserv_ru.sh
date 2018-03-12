@@ -6,7 +6,7 @@ CUTOP=$(top -b -n 1 | awk '/ShooterG/')
 ARKCPU=$( echo ${CUTOP} | awk '{print $9}')
 ARKMEM=$( echo ${CUTOP} | awk '{print $10}')
 CPU_V=$( sar -P ALL 10 3 | awk '/Average.*all/{print $8}' )
-TMP_MF="$(mktemp)"
+TMP_MAIL="$(mktemp)"
 
 if [[ ! -n $CUTOP ]]; then exit 1 ; fi
 
@@ -19,9 +19,9 @@ logger "Ark server high CPU usage, less than 20% idle"
 sar -P ALL 10 3 | awk 'BEGIN {}
 /CPU/{print}
 /all/{print}
-' > ${TMP_MF}
-uptime | cut -d " " -f 12-16 >> ${TMP_MF}
-mail -s "Ark Server high CPU usage, greater than 95%" servmana < ${TMP_MF}
+' > ${TMP_MAIL}
+uptime | cut -d " " -f 12-16 >> ${TMP_MAIL}
+mail -s "Ark Server high CPU usage, greater than 95%" servmana < ${TMP_MAIL}
 elif [[ $( echo ${ARKMEM%.*}) -gt 90 ]]; then
 logger "Ark Server high Memory usage, greater than 90"
 mail -s "Ark Server high Memory usage, greater than 90%" servmana < /dev/null  2>/dev/null
@@ -32,4 +32,5 @@ else
 logger "Ark Server looking nominal"
 fi
 
+rm "${TMP_MAIL}"
 exit 0

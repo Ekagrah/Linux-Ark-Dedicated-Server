@@ -26,4 +26,5 @@ FNR <= 7
 #\ps -efH --sort=+ppid | awk '$8 !~ /^\[/||/volume-manager$/' | \grep -v "lightdm" >> ${DAILY}
 mail -s "ArkServPriv report as of $(\date '+%F-%R')" servmana < "${DAILY}"
 
+rm "${DAILY}"
 exit 0
