@@ -2,13 +2,12 @@
 ## I've typically placed scripts in /opt/bin
 ## https://steamdb.info/app/376030
 
-curr_date="$( \date +%b%d_%H-%M )"
 ############
 # User editable section
 PYVERS="python3"
 PYRCON='/opt/bin/rcon_client_v2.py'
 arkdir='/opt/game'
-savedir="/home/$USER/arksavedata/"${curr_date}""
+savedir="/home/$USER/arksavedata/"
 map="Aberration_P"
 nplayers="10"
 serv_port="7777"
@@ -34,7 +33,6 @@ echo -e "\nUsage: $0 <option>
 }
 
 upserver () {
-alt_query_port=$(( ${query_port} + 1 ))
 tmux list-session 2>/dev/null | cut -d \: -f 1 | while read -r line ; do
 	if [[ ${line} == 'arkserver' ]]; then
 		tmux kill-session -t arkserver
@@ -72,6 +70,7 @@ until [[ "${chkservup}" == 'true' ]]; do
 	sleep 20
 	let upcounter-=1
 done
+rm "${MAIL_TMP}"
 }
 
 fnc_update () {
@@ -97,6 +96,7 @@ else
 echo "No update" 
 exit 0
 fi
+rm "${tmpfile}"
 }
 
 fnc_chkupdate () {
@@ -110,19 +110,21 @@ fi
 }
 
 fnc_dosave () {
-	if [[ ! -d "${savedir}" ]] ; then
-		mkdir -p "${savedir}"
-	fi
-	echo "Copying files..."
-	cp "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini "${savedir}"/
-	cp "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini "${savedir}"/
-	cp "${arkdir}"/ShooterGame/Saved/SavedArks/"$map".ark "${savedir}"/"$map"_${curr_date}.ark
-	savefolder="$( echo "${savedir%/}" | awk -F "/" '{print $NF}' )"
-	savedir_parent="$( echo "${savedir%/${savefolder}}" )"
-	cd "${savedir_parent}"
-	echo "Making tarball..."
-	\tar -czf ark-"${curr_date}".tar ./"${savefolder}"
-	rm -rf ${savedir}
+case "${savedir}" in
+/etc*|/bin*|/cgroup*|/lib*|/misc*|/net*|/proc*|/sbin*|/var*|/boot*|/dev*|/lib64*|/selinux*|/sys*|/usr*) echo "Not wise to save to "${savedir}"" ;; esac
+local curr_date="$( \date +%b%d_%H-%M )"
+local tar_dir="tmp.${curr_date}"
+cd "${savedir}"
+if [[ ! -d "${tar_dir}" ]] ; then mkdir -p "${tar_dir}" ; fi
+echo "Copying files to ${savedir}/${tar_dir}..."
+cp "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini "${tar_dir}"/
+cp "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini "${tar_dir}"/
+cp "${arkdir}"/ShooterGame/Saved/SavedArks/"$map".ark "${tar_dir}"/"$map"_${curr_date}.ark
+cp "${arkdir}"/ShooterGame/Saved/SavedArks/*.arkprofile "${tar_dir}"/
+cp "${arkdir}"/ShooterGame/Saved/SavedArks/*.arktribe "${tar_dir}"/
+echo "Making tarball..."
+\tar -czf ark-"${curr_date}".tar ./"${tar_dir}"
+rm -rf ./${tar_dir}
 }
 
 checkplayers () {
@@ -183,6 +185,7 @@ if [[ $(( $(\date +%s) - $(\stat -c %Y "${arkdir}"/ShooterGame/Saved/SavedArks/$
 else
 	${PYVERS} ${PYRCON} saveworld
 	echo -e "Manually ran saveworld command..."
+	sleep 5
 	if [[ $(( $(\date +%s) - $(\stat -c %Y "${arkdir}"/ShooterGame/Saved/SavedArks/${map}.ark) )) -lt 180 ]]; then
 		downserver
 		upserver
