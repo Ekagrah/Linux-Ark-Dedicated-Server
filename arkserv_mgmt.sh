@@ -196,6 +196,11 @@ else
 fi
 }
 
+fnc_updmod () {
+echo "to do" > /dev/null
+exit 0
+}
+
 #==============#
 if [[ $# -gt 1 ]]; then
 	USAGE
