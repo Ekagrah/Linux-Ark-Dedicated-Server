@@ -7,8 +7,13 @@
 PYVERS="python3"
 PYRCON='/opt/bin/rcon_client_v2.py'
 arkdir='/opt/game'
-savedir="/home/$USER/arksavedata/"
-map="Aberration_P"
+savedir="/home/$USER/Documents/arksavedata/"
+#map="Aberration_P"
+map="ScorchedEarth_p"
+#map=""
+#map="skiesofnazca"
+#map="TheCenter"
+#map="Ragnarok"
 nplayers="10"
 serv_port="7777"
 query_port="27015"
@@ -41,7 +46,7 @@ tmux list-session 2>/dev/null | cut -d \: -f 1 | while read -r line ; do
 done
 	if [[ $( pgrep -x ShooterGameServ 2>/dev/null) -eq '' ]] ; then
 		echo "Starting Ark Server."
-		tmux new-session -d -x 23 -y 80 -s arkserver /opt/game/ShooterGame/Binaries/Linux/ShooterGameServer "${map}?listen?MaxPlayers=${nplayers}?QueryPort=${query_port}?RCONEnabled=${rcon_active}?RCONPort=${rcon_port}?Port=${serv_port}?AllowRaidDinoFeeding=True?ForceFlyerExplosives=True -USEALLAVAILABLECORES -usecache -servergamelog"
+		tmux new-session -d -x 23 -y 80 -s arkserver /opt/game/ShooterGame/Binaries/Linux/ShooterGameServer "${map}?listen?MaxPlayers=${nplayers}?QueryPort=${query_port}?RCONEnabled=${rcon_active}?RCONPort=${rcon_port}?Port=${serv_port}?AllowRaidDinoFeeding=True?ForceFlyerExplosives=True -USEALLAVAILABLECORES -usecache -server -servergamelog"
 		fi
 }
 
@@ -50,7 +55,10 @@ local chkservup='false'
 local servstatus='down'
 local upcounter=12
 local MAIL_TMP="$(mktemp)"
-if [[ -n $( pgrep -x ShooterGameServ 2>/dev/null) ]]; then
+if [[ $( pgrep -x ShooterGameServ 2>/dev/null) = '' ]]; then
+	echo -e "Server does not seem to be running..."
+	exit 3
+else
 	echo -e "Server is running"
 fi
 until [[ "${chkservup}" == 'true' ]]; do
@@ -80,7 +88,7 @@ if [[ ${do_update} == true ]] ; then
 # this is slow and times out occasionally
 	local upd_timeout=5
 	while true ;do
-	/usr/games/steamcmd +force_install_dir /opt/game/ +login anonymous +app_update 376030 public validate +quit | tee ${tmpfile}
+	/usr/games/steamcmd +force_install_dir "${arkdir}" +login anonymous +app_update 376030 public validate +quit | tee ${tmpfile}
 # so we must verify it completed
 	upd_state="$( tail -5 ${tmpfile} | awk -F " " '/.*App.*376030.*/{print $1}' )"
 	case $upd_state in
@@ -89,19 +97,20 @@ if [[ ${do_update} == true ]] ; then
 	esac
 	if [[ ${upd_timeout} -eq 0 ]] ;  then
 		echo -e "Issue completing update. Check permissions\nand disk space for starters." | mail -s "Ark server update failed" servmana
+		rm -f "${tmpfile}"
 		exit 2
 	fi
 	done
 else
-echo "No update" 
+echo "No update"
+rm -f "${tmpfile}"
 exit 0
 fi
-rm "${tmpfile}"
 }
 
 fnc_chkupdate () {
 new_vers="$( /usr/games/steamcmd +login anonymous  +app_info_update 1 +app_info_print 376030 +quit | grep -A5 "branches" | awk -F '"' '/buildid/{print $4}' )"
-curr_vers="$( awk -F '"' '/buildid/{print $4}' /opt/game/steamapps/appmanifest_376030.acf )"
+curr_vers="$( awk -F '"' '/buildid/{print $4}' ${arkdir}/steamapps/appmanifest_376030.acf )"
 if [[ ${new_vers} -gt ${curr_vers} ]]; then
 do_update=true
 else
@@ -196,9 +205,23 @@ else
 fi
 }
 
-fnc_updmod () {
-echo "to do" > /dev/null
-exit 0
+fnc_updmod_conf () {
+##BROKEN-dedicated server will not start, leaving logic in place
+## This function will add mods from GameUserSettings to be auto-managed
+## To make this work ensure the "-automanagedmods" is on commandline
+if [[ "$( grep -o '\[ModInstaller\]' "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini )" = '' ]] ; then
+	echo '[ModInstaller]' >> "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini
+else
+	echo 'ok' >/dev/null
+fi
+for i in $( sed -n 's/ActiveMods=//p' ${arkdir}/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini | awk -v FS="," '{OFS=" "; $1=$1; print $0}' ) ; do
+	if [[ $(grep -o "ModIDS=${i}" "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini) = '' ]]; then
+	echo -e "\tAdding ${i} to Game.ini"
+	sed -i "/\[ModInstaller\]/a\ModIDS=${i}" "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini
+	else
+		echo -e "\t${i} already exists in Game.ini"
+	fi
+done
 }
 
 #==============#
@@ -215,7 +238,8 @@ case $1 in
 	monitor) fnc_monitor ;;
 	update) fnc_chkupdate ; fnc_update ; fnc_restart ; fnc_monitor ;;
 	restart) fnc_restart ; fnc_monitor ;;
-	updmod) fnc_updmod ; fnc_restart ; fnc_monitor ;;
+	modconf) echo "Waiting for this functionality to be fixed by WC" ; USAGE ;;
+	#fnc_updmod_conf ; fnc_restart ; fnc_monitor ;;
 	*) USAGE ; exit 1 ;;
 esac
 
