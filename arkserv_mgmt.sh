@@ -114,12 +114,17 @@ fi
 }
 
 fnc_dosave () {
-case "${savedir}" in
-/etc*|/bin*|/cgroup*|/lib*|/misc*|/net*|/proc*|/sbin*|/var*|/boot*|/dev*|/lib64*|/selinux*|/sys*|/usr*) echo "Not wise to save to "${savedir}"" ; exit 6 ;; esac
+if [[ ! -d ${savedir} ]] ; then
+	echo "\$savedir does not seem to exist."
+	exit 6
+else
+	case "${savedir}" in
+	/etc*|/bin*|/cgroup*|/lib*|/misc*|/net*|/proc*|/sbin*|/var*|/boot*|/dev*|/lib64*|/selinux*|/sys*|/usr*) echo "Not wise to save to "${savedir}"" ; exit 6 ;; esac
+fi
 local curr_date="$( \date +%b%d_%H-%M )"
 local tar_dir="tmp.${curr_date}"
 cd "${savedir}"
-if [[ ! -d "${tar_dir}" ]] ; then mkdir -p "${tar_dir}" ; fi
+if [[ ! -d "${tar_dir}" ]] ; then \mkdir -p "${tar_dir}" ; fi
 echo "Copying files to ${savedir}/${tar_dir}..."
 cp "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini "${tar_dir}"/
 cp "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini "${tar_dir}"/
