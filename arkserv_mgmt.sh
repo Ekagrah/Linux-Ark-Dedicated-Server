@@ -85,7 +85,7 @@ if [[ ${do_update} == true ]] ; then
 	while true ;do
 	/usr/games/steamcmd +login anonymous +force_install_dir "${arkdir}" +app_update 376030 public validate +quit | tee ${tmpfile}
 # so we must verify it completed
-	upd_state="$( tail -5 ${tmpfile} | awk -F " " '/.*App.*376030.*/{print $1}' )"
+	upd_state="$( \tail -5 ${tmpfile} | \awk -F " " '/.*App.*376030.*/{print $1}' )"
 	case $upd_state in
 		*[Ss]uccess*) echo "${upd_state} Ark server is up-to-date" ; break ;;
 		*ERROR*) echo "${upd_state}...restarting update" ; let upd_timeout=-1 ;;
@@ -104,7 +104,7 @@ fi
 }
 
 fnc_chkupdate () {
-new_vers="$( /usr/games/steamcmd +login anonymous  +app_info_update 1 +app_info_print 376030 +quit | grep -A5 "branches" | \awk -F '"' '/buildid/{print $4}' )"
+new_vers="$( /usr/games/steamcmd +login anonymous  +app_info_update 1 +app_info_print 376030 +quit | \grep -A5 "branches" | \awk -F '"' '/buildid/{print $4}' )"
 curr_vers="$( \awk -F '"' '/buildid/{print $4}' ${arkdir}/steamapps/appmanifest_376030.acf )"
 if [[ ${new_vers} -gt ${curr_vers} ]]; then
 do_update=true
@@ -134,10 +134,10 @@ rm -rf ./${tar_dir}
 
 checkplayers () {
 local chktimeout=12
-if [[ $( echo $(${PYVERS} ${PYRCON} listplayers) ) == 'No Players Connected' ]]; then
+if [[ $( \echo $(${PYVERS} ${PYRCON} listplayers) ) == 'No Players Connected' ]]; then
 	echo 'No Players Connected' 2>1
 else
-	until [[ $( echo $(${PYVERS} ${PYRCON} listplayers) ) == 'No Players Connected' ]]; do
+	until [[ $( \echo $(${PYVERS} ${PYRCON} listplayers) ) == 'No Players Connected' ]]; do
 		if [[ $chktimeout -eq 0 ]]; then
 			echo "Timeout waiting for users to log off" | mail -s "Notice: Ark server"
 			exit 2
@@ -208,7 +208,7 @@ fnc_updmod_conf () {
 ## This function will add mods from GameUserSettings to be auto-managed
 ## To make this work ensure the "-automanagedmods" is on commandline
 if [[ "$( \grep -o '\[ModInstaller\]' "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini )" = '' ]] ; then
-	echo '[ModInstaller]' >> "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini
+	\echo '[ModInstaller]' >> "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini
 else
 	echo 'ok' >/dev/null
 fi
@@ -233,8 +233,8 @@ local active_mods="$(\sed -n 's/ActiveMods=//p' ${arkdir}/ShooterGame/Saved/Conf
 declare -a mod_list
 while IFS=  read -r -d $'\0'; do mod_list+=("$REPLY") ; done < <(\find ./ -name '*.mod' -print0 | \sed -e 's|./111111111.mod||' -e 's|./||g' -e 's|.mod||g')
 local arr_id=0
-for m in $(echo ${mod_list[@]} ) ; do
-	if [[ $(echo ${active_mods} | \grep -o ${m}) == "${m}" ]]; then
+for m in $(\echo ${mod_list[@]} ) ; do
+	if [[ $(\echo ${active_mods} | \grep -o ${m}) == "${m}" ]]; then
 		unset mod_list[${arr_id}]
 	else
 		echo "Marking ${m} for removal" 
