@@ -14,7 +14,6 @@ map="TheIsland"
 #map="Ragnarok"
 #map="Aberration_P"
 #map="_P"
-#map="skiesofnazca"
 nplayers="10"
 serv_port="7777"
 query_port="27015"
@@ -224,7 +223,12 @@ done
 }
 
 fnc_cleanup () {
+if [[ -d ${arkdir} ]]; then
 cd "${arkdir}"/ShooterGame/Content/Mods/
+else
+echo "Directory appears invalid, exiting for safety..."
+exit 7
+fi
 local active_mods="$(\sed -n 's/ActiveMods=//p' ${arkdir}/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini | \awk -v FS="," '{OFS=" "; $1=$1; print $0}')"
 declare -a mod_list
 while IFS=  read -r -d $'\0'; do mod_list+=("$REPLY") ; done < <(\find ./ -name '*.mod' -print0 | \sed -e 's|./111111111.mod||' -e 's|./||g' -e 's|.mod||g')
