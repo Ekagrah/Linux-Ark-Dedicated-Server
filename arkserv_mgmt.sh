@@ -104,6 +104,9 @@ fi
 }
 
 fnc_chkupdate () {
+#fix for conflicting file that can prevent 
+#getting the most recent version
+if [[ -e ${HOME}/.steam/steam/appcache/appinfo.vdf ]]; then rm ${HOME}/.steam/steam/appcache/appinfo.vdf ; fi
 new_vers="$( /usr/games/steamcmd +login anonymous  +app_info_update 1 +app_info_print 376030 +quit | \grep -A5 "branches" | \awk -F '"' '/buildid/{print $4}' )"
 curr_vers="$( \awk -F '"' '/buildid/{print $4}' ${arkdir}/steamapps/appmanifest_376030.acf )"
 if [[ ${new_vers} -gt ${curr_vers} ]]; then
