@@ -220,6 +220,8 @@ if [[ "$( \grep -o '\[ModInstaller\]' "${arkdir}"/ShooterGame/Saved/Config/Linux
 else
 	echo 'ok' >/dev/null
 fi
+# Add each item listed with ActiveMods
+# to Game.ini for auto-patching
 for i in $( \sed -n 's/ActiveMods=//p' ${arkdir}/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini | \awk -v FS="," '{OFS=" "; $1=$1; print $0}' ) ; do
 	if [[ $(\grep -o "ModIDS=${i}" "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini) = '' ]]; then
 	echo -e "\tAdding ${i} to Game.ini"
@@ -242,6 +244,8 @@ declare -a mod_list
 while IFS=  read -r -d $'\0'; do mod_list+=("$REPLY") ; done < <(\find ./ -name '*.mod' -print0 | \sed -e 's|./111111111.mod||' -e 's|./||g' -e 's|.mod||g')
 local arr_id=0
 for m in $(\echo ${mod_list[@]} ) ; do
+# if existing file has match under ActiveMods
+#then remove it from array
 	if [[ $(\echo ${active_mods} | \grep -o ${m}) == "${m}" ]]; then
 		unset mod_list[${arr_id}]
 	else
