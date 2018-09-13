@@ -7,7 +7,7 @@
 PYVERS="python3"
 PYRCON='/opt/bin/rcon_client_v2.py'
 arkdir='/opt/game'
-savedir="$HOME/Documents/arksavedata"
+savedir="${HOME}/Documents/arksavedata"
 #map="TheIsland"
 #map="ScorchedEarth_p"
 #map="Aberration_P"
@@ -41,7 +41,7 @@ echo -e "\nUsage: $0 <option>
 \t-uo\tDoes server update only
 \tcleanup\tRemoves unnecessary mod content               
 \t-s\tMakes a copy of server config, map save data, and player data files
-\t-h\tPrints this usage statement"
+\t-h or help\tPrints this usage statement"
 }
 
 upserver () {
