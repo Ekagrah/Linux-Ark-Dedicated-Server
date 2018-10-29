@@ -1,6 +1,10 @@
 #!/bin/bash
 ## I've typically placed scripts in /opt/bin
-## https://steamdb.info/app/376030
+## Dedicated Server - https://steamdb.info/app/376030
+## Full Game - https://steamdb.info/app/346110
+
+## Auto managing of mods requires:
+##TBD
 
 ############
 ## User editable section
@@ -9,14 +13,14 @@ PYRCON='/opt/bin/rcon_client_v2.py'
 arkdir='/opt/game'
 savedir="${HOME}/Documents/arksavedata"
 #map="TheIsland"
-#map="ScorchedEarth_p"
+#map="ScorchedEarth_P"
 #map="Aberration_P"
 #map="Extinction_P"
 #map="TheCenter"
-#map="Ragnarok"
-map="skiesofnazca"
+map="Ragnarok"
+#map="skiesofnazca"
 
-nplayers="5"
+nplayers="15"
 serv_port="7777"
 query_port="27015"
 rcon_active="True"
@@ -37,12 +41,15 @@ echo -e "\nUsage: $0 <option>
 \tstop\tStops game server
 \trestart\tRestarts game server
 \tmonitor\tReports back if server is running and accessible
-\tupdate\tChecks for update to dedicated server
+\tupdate\tChecks if update to dedicated server has been posted,\n\t\tapplies update, and restarts server
 \t-uo\tDoes server update only
 \tcleanup\tRemoves unnecessary mod content               
 \t-s\tMakes a copy of server config, map save data, and player data files
-\t-h or help\tPrints this usage statement"
+\t-h\tPrints this usage statement"
 }
+#\tmodconf\t Add active mods from GameUserSettings to be auto-managed
+
+if [[ $# -gt 1 ]]; then USAGE ; exit 1 ; fi
 
 upserver () {
 tmux list-session 2>/dev/null | cut -d \: -f 1 | while read -r line ; do
@@ -53,7 +60,8 @@ tmux list-session 2>/dev/null | cut -d \: -f 1 | while read -r line ; do
 done
 	if [[ $( \pgrep -x ShooterGameServ 2>/dev/null) -eq '' ]] ; then
 		echo "Starting Ark Server."
-		tmux new-session -d -x 23 -y 80 -s arkserver /opt/game/ShooterGame/Binaries/Linux/ShooterGameServer "${map}?listen?MaxPlayers=${nplayers}?QueryPort=${query_port}?RCONEnabled=${rcon_active}?RCONPort=${rcon_port}?Port=${serv_port}?AllowRaidDinoFeeding=True?ForceFlyerExplosives=True -USEALLAVAILABLECORES -usecache -server -servergamelog"
+		tmux new-session -d -x 23 -y 80 -s arkserver /opt/game/ShooterGame/Binaries/Linux/ShooterGameServer "${map}?listen?MaxPlayers=${nplayers}?QueryPort=${query_port}?RCONEnabled=${rcon_active}?RCONPort=${rcon_port}?Port=${serv_port}?AllowRaidDinoFeeding=True?ForceFlyerExplosives=True -USEALLAVAILABLECORES -servergamelog"
+		##-usecache -server -NoBattlEye -automanagedmods
 		fi
 }
 
@@ -218,8 +226,13 @@ fi
 }
 
 fnc_restart () {
+if [[ $( \pgrep -x ShooterGameServ 2>/dev/null) -eq '' ]]; then
+	echo "Server not running, no restart needed"
+	exit 6
+else
 echo 'Sending broadcast to server'
 ${PYVERS} ${PYRCON} broadcast Server going down for maintinence in 3 minutes.
+fi
 
 checkplayers
 
@@ -251,27 +264,6 @@ else
 fi
 }
 
-fnc_updmod_conf () {
-##BROKEN-dedicated server will not start, leaving logic in place. WC needs to fix.
-## This function will add mods from GameUserSettings to be auto-managed
-## To make this work ensure the "-automanagedmods" is on commandline
-if [[ "$( \grep -o '\[ModInstaller\]' "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini )" = '' ]] ; then
-	echo '[ModInstaller]' >> "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini
-else
-	echo 'ok' >/dev/null
-fi
-## Add each item listed with ActiveMods
-## to Game.ini for auto-patching
-for i in $( \sed -n 's/ActiveMods=//p' ${arkdir}/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini | \awk -v FS="," '{OFS=" "; $1=$1; print $0}' ) ; do
-	if [[ $(\grep -o "ModIDS=${i}" "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini) = '' ]]; then
-	echo -e "\tAdding ${i} to Game.ini"
-	\sed -i "/\[ModInstaller\]/a\ModIDS=${i}" "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini
-	else
-		echo -e "\t${i} already exists in Game.ini"
-	fi
-done
-}
-
 fnc_cleanup () {
 if [[ -d ${arkdir} ]]; then
 cd "${arkdir}"/ShooterGame/Content/Mods/
@@ -292,8 +284,6 @@ for m in $(\echo ${mod_list[@]} ) ; do
 	else
 		echo "Marking ${m} for removal" 
 	fi
-	##this is related to the auto-mod updating that is broken
-	#\sed -i "/${m}/d" "${arkdir}"/ShooterGame/Saved/Config/LinuxServer/Game.ini
 	let arr_id++
 done
 unset arr_id
@@ -324,8 +314,6 @@ case $1 in
 	monitor) fnc_monitor ;;
 	update) fnc_chkupdate ; fnc_update ; fnc_restart ; fnc_monitor ;;
 	-uo) fnc_chkupdate ; fnc_update	;;
-	modconf) echo "Waiting for this functionality to be fixed by WC" ; USAGE ;;
-		#fnc_updmod_conf ; fnc_restart ; fnc_monitor ;;
 	cleanup) fnc_cleanup ;;
 	-s) fnc_dosave ;;
 	-h|help) USAGE ;;
