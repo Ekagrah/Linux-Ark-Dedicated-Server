@@ -35,6 +35,8 @@ Next you can customize the game experience using the Game.ini and GameUserSettin
 
 ## Using Scripts
 
+UPDATE 1: I have added a local python script to replace the bash script. Using this inconjunction with arkux-mod-mgmt.ps1. Will be adding a python script to do all management from a Windows machine.
+
 MAKE SURE TO EDIT .SH AND .PS1 SCRIPT VARIABLES FOR YOUR INSTALL
 
 My idea of managing the mods took several iterations and trial and error. Eventually I arrived at my posted scripts which should take minimal customization to work for anyone (be gentle its my first time writing code for a public audience).
