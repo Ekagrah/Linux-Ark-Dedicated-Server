@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 ## see my documentation on how linux server is set up
 
+## Can change the server launch options in the similarly named function
+
 ## Auto managing of mods requires -automanagedmods specified on commandline for server launch, uses ActiveMods from GameUserSettings and running ... steamcmdsetup ... but doesn't play well with my server setup
 
 ##------Start user editable section------##
 
 #MAP = 'TheIsland'
-MAP = 'ScorchedEarth_P'
+#MAP = 'ScorchedEarth_P'
 #MAP = 'Aberration_P'
-#MAP = 'Extinction_P'
+MAP = 'Extinction'
 #MAP = 'TheCenter'
 #MAP = 'Ragnarok'
 #MAP = 'skiesofnazca'
@@ -20,7 +22,7 @@ SERV_PORT = '7777'
 QUERY_PORT = '27015'
 RCON_ACTIVE = 'True'
 RCON_SERVER_PORT = '32330'
-RCON_PASSWORD = 'bouy'
+RCON_PASSWORD = 'password'
 
 ## Email address to send and receive from
 EMAIL_ADDR = 'user@example.com'
@@ -226,14 +228,20 @@ def RCON_CLIENT(*args):
             print("RCON command sent: {}".format(command_string))
             interactive_mode = False
         else:
-            command_string = input("Command: ")
+            command_string = input("RCON Command: ")
             if command_string in ('exit', 'Exit', 'E'):
-                sock.shutdown(socket.SHUT_RDWR)
-                sock.close()
+                
+                if sock:
+                    sock.shutdown(socket.SHUT_RDWR)
+                    sock.close()
                 sys.exit("Exiting rcon client...")
 
-        sock = socket.create_connection(("127.0.0.1", RCON_SERVER_PORT))
-            #ConnectionRefusedError
+        try:
+            sock = socket.create_connection(("127.0.0.1", RCON_SERVER_PORT))
+        except ConnectionRefusedError:
+            print("Unable to make RCON connection")
+            break
+            
         sock.settimeout(RCON_SERVER_TIMEOUT)
             ## send SERVERDATA_AUTH
         sendMessage(sock, RCON_PASSWORD, MESSAGE_TYPE_AUTH)
@@ -268,23 +276,28 @@ def CHECK_PLAYERS():
             else:
                 print(PLAYER_LIST)
                 time.sleep(20)
-                chktimeout -= 1          
-        
+                chktimeout -= 1
         else:
             sys.exit('Timeout waiting for users to log off')
 
 
 def SERV_LAUNCH():
     """Make temporary file so command can be called from there and will run independently from python script"""
-    ## Create tempfile and get file descriptor and file path
-    td, tp = tempfile.mkstemp()
-    ## open with append permission
-    t = open(tp, 'a+')
-    t.write('#!/bin/bash\n{}/ShooterGame/Binaries/Linux/ShooterGameServer "{}?listen?MaxPlayers={}?QueryPort={}?Port={}?RCONEnabled={}?RCONPort={}?AllowRaidDinoFeeding=True?ForceFlyerExplosives=True -USEALLAVAILABLECORES -servergamelog"\nexit 0'.format(SERV_ARK_INSTALLDIR, MAP, NPLAYERS, QUERY_PORT, SERV_PORT, RCON_ACTIVE, RCON_SERVER_PORT))
     
-    subprocess.Popen(['/bin/bash', '{}'.format(tp)])
+    launchcmd = '''#!/bin/bash
+    {}/ShooterGame/Binaries/Linux/ShooterGameServer "{}?listen?MaxPlayers={}?QueryPort={}?Port={}?RCONEnabled={}?RCONPort={}?RCONServerGameLogBuffer=400?AllowRaidDinoFeeding=True?ForceFlyerExplosives=True -servergamelog -NoBattlEye -USEALLAVAILABLECORES" &
+    exit 0'''.format(SERV_ARK_INSTALLDIR, MAP, NPLAYERS, QUERY_PORT, SERV_PORT, RCON_ACTIVE, RCON_SERVER_PORT)
+    ## -usecache -server -automanagedmods ?PreventMateBoost ?PreventDownloadSurvivor=True?PreventDownloadDinos=True?PreventDownloadItems=True -ForceRespawnDinos
     
-    os.close(td)
+    tmpscript = tempfile.NamedTemporaryFile('wt')
+    tmpscript.write(launchcmd)
+    tmpscript.flush()
+    
+    subprocess.Popen(['/bin/bash', tmpscript.name],
+        close_fds=True,
+        preexec_fn=os.setsid,
+        )
+
 
 def UPSERVER():
     if SERV_STATUS_CHK():
@@ -328,9 +341,9 @@ def DOWNSERVER():
 
 def RESTART_SERVER():
     RCON_CLIENT("broadcast Server going down for maintenance in 3 minutes")
-    while True:
-        CHECK_PLAYERS()
-        ## FIX ME
+    
+    CHECK_PLAYERS()
+    
     ITEM_MTIME = os.path.getmtime(r'{}/ShooterGame/Saved/SavedArks/{}.ark'.format(SERV_ARK_INSTALLDIR, MAP))
     RECENT_SAVE = (time.time() - ITEM_MTIME)
     ## if the time difference (current time - file modification time) is greater than 3 minutes then act
@@ -355,7 +368,7 @@ def RESTART_SERVER():
 
 def SERV_MONITOR():
     """Checks on status of server"""
-    ## Increase for community maps
+    ## Increase as needed, especially for community maps
     upcounter = 7
     if SERV_STATUS_CHK():
         print("Server is running")
@@ -560,9 +573,12 @@ def EMAIL_STATS():
     EMAIL_DATE = time.strftime("%F-%R")
     fd, fp = tempfile.mkstemp()
     f = open(fp, 'a+')
-    RUNNING_MAP = SUBPROC_CMD("/bin/ps -efH --sort=+ppid | grep -E '[S]hooterGameServer' | awk '{{print $9}}' | awk -F '?' '{{print $1}}'")
+    RUNNING_MAP = SUBPROC_CMD("/bin/ps -efH --sort=+ppid | grep -E '[S]hooterGameServer' | /usr/bin/awk '{{print $9}}' | awk -F '?' '{{print $1}}'")
     f.write("\nStats as of {} running map: {} \n".format(EMAIL_DATE, RUNNING_MAP))
     f.write(RCON_CLIENT("listplayers"))
+    f.write("\n------\n")
+    f.write("CPU Info:")
+    f.write(SUBPROC_CMD("/bin/cat /proc/cpuinfo | /usr/bin/head -15 | /usr/bin/awk '/model name/{{print}} ; /cpu cores/{{print}}'"))
     f.write("\n------\n")
     f.write(SUBPROC_CMD("/usr/bin/top -b -n 1 | awk 'BEGIN {{}}; FNR <= 7; /ShooterG/{print}'"))
     f.write("\n------\n")
