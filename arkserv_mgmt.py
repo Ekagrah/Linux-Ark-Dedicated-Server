@@ -127,9 +127,9 @@ VARIABLE_CHK()
 
 
 def get_args():
-    """Function to get action, specified on command line, to take"""
+    """Function to get action, specified on command line, to take for server"""
     ## Assign description to help doc
-    parser = argparse.ArgumentParser(description='Script manages various functions taken on remote linux ARK server. One action accepted at a time.')
+    parser = argparse.ArgumentParser(description='Script manages various functions taken on remote linux ARK server. One action accepted at a time.', allow_abbrev=False)
     ## Add arguments. When argument present on command line then it is stored as True, else returns False
     parser.add_argument(
         '--start', help='Start remote server', action='store_true')

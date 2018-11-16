@@ -98,7 +98,7 @@ VARIABLE_CHK()
 def get_args():
     """Function to get action, specified on command line, to take"""
     ## Assign description to help doc
-    parser = argparse.ArgumentParser(description='Script manages various functions taken on local linux ARK server. One action accepted at a time.')
+    parser = argparse.ArgumentParser(description='Script manages various functions taken on local linux ARK server. One action accepted at a time.', allow_abbrev=False)
     ## Add arguments. When argument present on command line then it is stored as True, else returns False
     parser.add_argument(
         '--start', help='Start remote server', action='store_true')
@@ -577,7 +577,7 @@ def EMAIL_STATS():
     f.write("\nStats as of {} running map: {} \n".format(EMAIL_DATE, RUNNING_MAP))
     f.write(RCON_CLIENT("listplayers"))
     f.write("\n------\n")
-    f.write("CPU Info:")
+    f.write("CPU Info:\n")
     f.write(SUBPROC_CMD("/bin/cat /proc/cpuinfo | /usr/bin/head -15 | /usr/bin/awk '/model name/{{print}} ; /cpu cores/{{print}}'"))
     f.write("\n------\n")
     f.write(SUBPROC_CMD("/usr/bin/top -b -n 1 | awk 'BEGIN {{}}; FNR <= 7; /ShooterG/{print}'"))
