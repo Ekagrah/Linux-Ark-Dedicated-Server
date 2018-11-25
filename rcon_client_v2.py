@@ -134,8 +134,11 @@ while interactive_mode:
     response_string,response_id,response_type = getResponse(sock)
     # trim off null characters and new line
     response_txt = response_string.decode(encoding=('UTF-8'))[:-3]
-    print(response_txt)
-    sock.shutdown(socket.SHUT_RDWR)
-    sock.close()
+    if interactive_mode:
+        print(response_txt)
+    else:
+        print(response_txt)
+        sock.shutdown(socket.SHUT_RDWR)
+        sock.close()
 
 # end main loop
