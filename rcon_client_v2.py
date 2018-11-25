@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # This is an RCON client for games using the Source RCON protocol.
 # Pass a RCON command via argument (or don't to use interactive mode)
@@ -32,12 +32,13 @@ import socket
 import struct
 import sys
 
-# START USER EDITABLE SECTION
+##------Start user editable section------##
 RCON_SERVER_HOSTNAME = 'serverip or dns'
 RCON_SERVER_PORT = '27015'
 RCON_PASSWORD = 'secret
-RCON_SERVER_TIMEOUT = 3 # server response timeout in seconds, don't go too high
-# END USER EDITABLE SECTION
+# server response timeout in seconds, don't go too high
+RCON_SERVER_TIMEOUT = 3
+##------End user editable section------##
 
 
 MESSAGE_TYPE_AUTH = 3
@@ -86,6 +87,7 @@ def getResponse(sock):
 
 # begin main loop
 interactive_mode = True
+sock = ''
 while interactive_mode:
     command_string = None
     response_string = None
@@ -94,12 +96,31 @@ while interactive_mode:
     if len(sys.argv) > 1:
         command_string = " ".join(sys.argv[1:])
         interactive_mode = False
+        print("RCON command sent: {}".format(command_string))
     else:
-        command_string = input("Command: ")
+        command_string = input("RCON Command: ")
         if command_string in ('exit', 'Exit', 'E'):
-            sys.exit("Exiting client...")
-    
-    sock = socket.create_connection((RCON_SERVER_HOSTNAME,RCON_SERVER_PORT))
+            
+            if sock:
+                sock.shutdown(socket.SHUT_RDWR)
+                sock.close()
+            sys.exit("Exiting rcon client...\n")
+        elif command_string in ('help','h','Help'):
+            print('\tUse exit or Exit to quit interactive mode.')
+            print('Many commands can be used via RCON, see https://ark.gamepedia.com/Console_Commands')
+            print('Tested commands:')
+            print('\tbroadcast\n\tserverchat\n\tgetchat')
+            print('\tsaveworld\n\tsetmessageoftheday\n\tdestroywilddinos\n\tsettimeofday')
+            print('\tlistplayers\n\tkillplayer\n\tserverchattoplayer')
+            continue
+        elif command_string in ('') or not command_string:
+            continue
+
+    try:
+        sock = socket.create_connection((RCON_SERVER_HOSTNAME, RCON_SERVER_PORT))
+    except ConnectionRefusedError:
+        print("Unable to make RCON connection")
+        sys.exit(3)
     sock.settimeout(RCON_SERVER_TIMEOUT)
         # send SERVERDATA_AUTH
     sendMessage(sock, RCON_PASSWORD, MESSAGE_TYPE_AUTH)
