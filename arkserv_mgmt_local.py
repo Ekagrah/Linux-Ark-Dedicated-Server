@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 ## see my documentation on how linux server is set up
+## Dedicated Server - https://steamdb.info/app/376030
+## Full Game - https://steamdb.info/app/346110
 
 ## Can change the server launch options in the similarly named function
 
@@ -10,9 +12,9 @@
 #MAP = 'TheIsland'
 #MAP = 'ScorchedEarth_P'
 #MAP = 'Aberration_P'
-MAP = 'Extinction'
+#MAP = 'Extinction'
 #MAP = 'TheCenter'
-#MAP = 'Ragnarok'
+MAP = 'Ragnarok'
 #MAP = 'skiesofnazca'
 
 SERV_ARK_INSTALLDIR = '/opt/game'
@@ -25,7 +27,7 @@ RCON_SERVER_PORT = '32330'
 RCON_PASSWORD = 'password'
 
 ## Email address to send and receive from
-EMAIL_ADDR = 'user@example.com'
+EMAIL_ADDR = 'email@gmail.com'
 ## Directory used when creating data archive
 SERV_SAVE_DIR = '/home/user/Documents/arksavedata'
 
@@ -96,7 +98,7 @@ VARIABLE_CHK()
 
 
 def get_args():
-    """Function to get action, specified on command line, to take"""
+    """Function to get action, specified on command line, to take for server"""
     ## Assign description to help doc
     parser = argparse.ArgumentParser(description='Script manages various functions taken on local linux ARK server. One action accepted at a time.', allow_abbrev=False)
     ## Add arguments. When argument present on command line then it is stored as True, else returns False
@@ -291,12 +293,14 @@ def SERV_LAUNCH():
     
     tmpscript = tempfile.NamedTemporaryFile('wt')
     tmpscript.write(launchcmd)
+    ## 
     tmpscript.flush()
     
     subprocess.Popen(['/bin/bash', tmpscript.name],
         close_fds=True,
         preexec_fn=os.setsid,
         )
+    #subprocess.Popen(['/bin/bash', tmpscript.name], close_fds=True)
 
 
 def UPSERVER():
@@ -426,10 +430,11 @@ def UPDATE():
             ## so we must verify it completed
             ## Escape {} for python using {{ }}
             UPD_OUTPUT = subprocess.check_output("/usr/bin/tail -5 {} | awk -F \" \" '/.*App.*376030.*/{{print $1}}' )\"".format(tfp), shell=True)
-            pattern = re.compile("Success")
+            pattern = re.compile("Success.*")
             for line in UPD_OUTPUT.split('\n'):
                 if pattern.match(line):
                     print("Ark server is up-to-date")
+                    os.close(fd)
                     return True
                 elif updatetimeout == 0:
                     print("Issue completing update. Check permissions\nand disk space for starters.")
@@ -437,7 +442,6 @@ def UPDATE():
                 else:
                     print("restarting update")
                     updatetimeout -= 1
-    os.close(fd)
 
 
 def SAVE_ACTIONS():
@@ -526,7 +530,8 @@ def MOD_CLEANUP():
         if (re.compile(r"[0-9]{9,}").fullmatch(i) and i != '111111111'):
             DIR_MODS.append(i)
     ## Get the difference between the two lists
-    RMMODS = list(set(ACTIVE_MODS).difference(DIR_MODS))
+    s = set(ACTIVE_MODS)
+    RMMODS = [ x for x in DIR_MODS if x not in s ]
     if not RMMODS:
         print("No mod data to clean up")
         sys.exit(0)
@@ -573,8 +578,10 @@ def EMAIL_STATS():
     EMAIL_DATE = time.strftime("%F-%R")
     fd, fp = tempfile.mkstemp()
     f = open(fp, 'a+')
-    RUNNING_MAP = SUBPROC_CMD("/bin/ps -efH --sort=+ppid | grep -E '[S]hooterGameServer' | /usr/bin/awk '{{print $9}}' | awk -F '?' '{{print $1}}'")
-    f.write("\nStats as of {} running map: {} \n".format(EMAIL_DATE, RUNNING_MAP))
+    RUNNING_MAP = SUBPROC_CMD('/bin/ps -efH --sort=+ppid | /usr/bin/awk \'/[S]hooterGameServer/{{$0=$9; nextfile}} END {{FS="?"; ORS=""; NF=11; $0=$0; print $1}}\'')
+    RUNNING_VERSION = SUBPROC_CMD("/usr/bin/find {}/ShooterGame/Saved/Logs/ -maxdepth 1 -mtime -2 -iname \"ShooterGame*.log\" -exec awk -F \": \" '/Version/{{print $2}}' {{}} \; | tail -1".format(SERV_ARK_INSTALLDIR))
+    f.write("\nRunning map and version: {} {}".format(RUNNING_MAP, RUNNING_VERSION))
+    f.write("\n------\n")
     f.write(RCON_CLIENT("listplayers"))
     f.write("\n------\n")
     f.write("CPU Info:\n")
