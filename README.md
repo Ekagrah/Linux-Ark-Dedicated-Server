@@ -29,8 +29,8 @@ steam> exit
 ```
 This same command is used to install and update the dedicated server
 
-4. On your machine you will be playing Ark on, you will add the scripts as described below. Run CMD as administrator and run: pip install paramiko scp.
-
+4. On your machine you will be playing Ark on, you will add the scripts as described below. Run CMD as administrator and run: pip install paramiko scp to install dependencies.
+ 
 
 Using Scripts
 ------
@@ -43,9 +43,9 @@ Copy arkserv_mgmt_local.py to linux server somewhere, the directory you place it
 
 When Steam does a mod update, launch ARK and it will show progress of mod installation in the bottom right corner. Once that is completed execute arkserv_mgmt.py --modupdate to copy mods to server.
 
-Restart following copy using arkserv_mgmt.py --restart
+Restart following copy completion using arkserv_mgmt.py --restart
 
-See script help for more details
+See script help for more details on functions
 
 
 *Notes:*
@@ -88,7 +88,7 @@ I have added some quality of life items:
 
 General Information
 ------
-* You can customize the game experience using the Game.ini and GameUserSettings.ini found in the directory where you installed the dedicated server under /ShooterGame/Saved/Config/LinuxServer/. I have had to launch the server once to get all the rest of the folders auto created.
+* You can customize the game experience using the Game.ini and GameUserSettings.ini found in the directory where you installed the dedicated server under /ShooterGame/Saved/Config/LinuxServer/. I have had to launch the server once to get all the rest of the folders auto created. ```/ShooterGame/Binaries/Linux/ShooterGameServer``` should be sufficient. Exit using CTRL+c.
 * puttygen.exe is good to use for generating ssh keys.
 * After a few minutes your server should be available. Some may not see it on the ARK in-game server list so you if you message them via Steam with a link like \`steam://connect/\<external-ip\>:27015\' people should be able to connect - this link also works if entered in IE/Edge but not Chrome.... Note: I have not found a better work around for people not finding my server via in-game 'Join Ark' option. 
 
