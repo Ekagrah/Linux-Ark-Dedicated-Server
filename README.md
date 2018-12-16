@@ -35,7 +35,7 @@ This same command is used to install and update the dedicated server
 Using Scripts
 ------
 
-####UPDATE 2: Reorganize README structure. Instructions for new python script:
+#### UPDATE 2: Reorganize README structure. Instructions for new python script:
 
 *MAKE SURE TO EDIT VARIABLES IN THE USER EDITABLE SECTION*
 
@@ -54,12 +54,12 @@ See script help for more details
 * I have a version of the remote script I use on my iPhone with Pythonista if anyone is interested.
 
 
-####UPDATE 1: Transition to full python
+#### UPDATE 1: Transition to full python
 
 I have added a local python script to replace the bash script. Using this inconjunction with arkux-mod-mgmt.ps1. Will be adding a python script to do all management from a Windows machine.
 
 
-####ORIGINAL:
+#### ORIGINAL:
 MAKE SURE TO EDIT .SH AND .PS1 SCRIPT VARIABLES FOR YOUR INSTALL
 
 Will need the putty tools plink.exe and pscp.exe
