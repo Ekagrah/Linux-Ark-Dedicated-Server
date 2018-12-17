@@ -29,7 +29,7 @@ steam> exit
 ```
 This same command is used to install and update the dedicated server
 
-4. On your machine you will be playing Ark on, you will add the scripts as described below. Run CMD as administrator and run: pip install paramiko scp to install dependencies.
+4. On your machine you will be playing Ark on, you will add the scripts as described below. Run CMD as administrator and run: ```pip install paramiko scp``` to install dependencies.
  
 
 Using Scripts
@@ -41,9 +41,9 @@ Using Scripts
 
 Copy arkserv_mgmt_local.py to linux server somewhere, the directory you place it in needs to match SERV_BIN within arkserv_mgmt.py.
 
-When Steam does a mod update, launch ARK and it will show progress of mod installation in the bottom right corner. Once that is completed execute arkserv_mgmt.py --modupdate to copy mods to server.
+When Steam does a mod update, launch ARK and it will show progress of mod installation in the bottom right corner. Once that is completed execute ```arkserv_mgmt.py --modupdate``` to copy mods to server.
 
-Restart following copy completion using arkserv_mgmt.py --restart
+Restart following copy completion using ```arkserv_mgmt.py --restart```
 
 See script help for more details on functions
 
