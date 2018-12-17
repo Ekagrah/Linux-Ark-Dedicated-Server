@@ -10,7 +10,7 @@ First, decide what mods you want. Here is a [link](http://steamcommunity.com/sha
   
 Next, set up a virtual machine. I'm sinply using VirtualBox. I wont detail that here but see this guide https://linus.nci.nih.gov/bdge/installUbuntu.html (provided by National Cancer Institute). I use lvm with about 20GB provided to /opt, 9GB of RAM, and 2 CPU (3.2 GHz Xeon). This has been sufficient for 5 or so people playing at a time.
 
-####Install steamcmd and ARK Dedicated Server
+#### Install steamcmd and ARK Dedicated Server
 
 1. Install steamcmd package. Example:
 ```
@@ -90,7 +90,7 @@ General Information
 ------
 * You can customize the game experience using the Game.ini and GameUserSettings.ini found in the directory where you installed the dedicated server under /ShooterGame/Saved/Config/LinuxServer/. I have had to launch the server once to get all the rest of the folders auto created. ```/ShooterGame/Binaries/Linux/ShooterGameServer``` should be sufficient. Exit using CTRL+c.
 * puttygen.exe is good to use for generating ssh keys.
-* After a few minutes your server should be available. Some may not see it on the ARK in-game server list so you if you message them via Steam with a link like \`steam://connect/\<external-ip\>:27015\' people should be able to connect - this link also works if entered in IE/Edge but not Chrome.... Note: I have not found a better work around for people not finding my server via in-game 'Join Ark' option. 
+* After a few minutes your server should be available. Some may not see it on the ARK in-game server list so you if you message them via Steam with a link like \`steam://connect/\<external-ip\>:27015\' people should be able to connect - this link also works if entered in IE/Edge but not Chrome.... Note: I have not found a better work around for people not finding my server via in-game 'Join Ark' option. Also, can connect via Steam > View > Servers.
 
 ## To-Do
 
