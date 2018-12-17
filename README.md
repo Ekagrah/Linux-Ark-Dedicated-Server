@@ -81,8 +81,8 @@ I have added some quality of life items:
 
 ## Troubleshooting
 
-* Use \`netstat -puln 2\>/dev/null | grep ShooterGame\' to check status of server. When you have two lines with one showing ':7778' then the server should be accessible.
-* Use \`ps -ef | grep -i ShooterGame\' ~~to see that there are two processess, one of which is a tmux session~~ to see related processess.
+* Use ```netstat -puln 2\>/dev/null | grep ShooterGame``` to check status of server. When you have two lines with one showing ':7778' then the server should be accessible.
+* Use ```ps -ef | grep -i ShooterGame``` ~~to see that there are two processess, one of which is a tmux session~~ to see related processess.
 * Report errors and I'll be happy to address them. I tried to anticipate as many scenarios as possible but this is a first for me.
 * I no longer use Steam GUI for server updates, but if someone takes that route here is a link to fix the Steam app not launching in Ubuntu https://askubuntu.com/questions/771032/steam-not-opening-in-ubuntu-16-04-lts#771507.
 
@@ -90,7 +90,7 @@ General Information
 ------
 * You can customize the game experience using the Game.ini and GameUserSettings.ini found in the directory where you installed the dedicated server under /ShooterGame/Saved/Config/LinuxServer/. I have had to launch the server once to get all the rest of the folders auto created. ```/ShooterGame/Binaries/Linux/ShooterGameServer``` should be sufficient. Exit using CTRL+c.
 * puttygen.exe is good to use for generating ssh keys.
-* After a few minutes your server should be available. Some may not see it on the ARK in-game server list so you if you message them via Steam with a link like \`steam://connect/\<external-ip\>:27015\' people should be able to connect - this link also works if entered in IE/Edge but not Chrome.... Note: I have not found a better work around for people not finding my server via in-game 'Join Ark' option. Also, can connect via Steam > View > Servers.
+* After a few minutes your server should be available. Some may not see it on the ARK in-game server list so you if you message them via Steam with a link like \`steam://connect/\<external-ip\>:27015\` people should be able to connect - this link also works if entered in IE/Edge but not Chrome.... Note: I have not found a better work around for people not finding my server via in-game 'Join Ark' option. Also, can connect via Steam > View > Servers.
 
 ## To-Do
 
