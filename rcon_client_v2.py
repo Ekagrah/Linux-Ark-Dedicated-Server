@@ -23,22 +23,97 @@
 
 
 ##Customized by Ekagrah, updated for python3
-##Ark Help from http://www.ark-survival.net/en/2015/07/09/rcon-tutorial/
-## and https://cjsavage.com/guides/linux/ark-dedicated-save-on-exit.html
-## and https://developer.valvesoftware.com/wiki/Source_RCON_Protocol
+## See https://developer.valvesoftware.com/wiki/Source_RCON_Protocol
 
 
+import argparse
+import getpass
 import socket
 import struct
 import sys
 
 ##------Start user editable section------##
-RCON_SERVER_HOSTNAME = 'serverip or dns'
-RCON_SERVER_PORT = '27015'
-RCON_PASSWORD = 'secret
-# server response timeout in seconds, don't go too high
+## server response timeout in seconds
 RCON_SERVER_TIMEOUT = 3
+
+## May use this later
+#MAX_COMMAND_LENGTH=510
 ##------End user editable section------##
+
+
+def get_args():
+    """Function to get server and port to connect to. As well as optional command."""
+    
+    global command
+    
+    ## Assign description to help doc
+    parser = argparse.ArgumentParser(description='Script manages RCON connection to remote linux game server. One command accepted at a time when specified on command line.', allow_abbrev=True)
+    
+    ## Add arguments. When argument present on command line, then it is stored as True, else returns False
+    parser.add_argument(
+        '-server', help='Hostname or IP to connect to', nargs=1, required=True)
+    parser.add_argument(
+        '-port', help='Port to use', type=int, nargs=1, required=True)
+    parser.add_argument(
+        '-command', help='Optional command to send, if not specified script enters interactive mode', nargs='+', required=False)
+
+        
+    ## Array for arguments passed to script
+    args = parser.parse_args()
+    server = str(*args.server)
+    port = str(*args.port)
+    if args.command:
+        command = ' '.join(args.command)
+    else:
+        command = ''
+    
+    ## Return all variable values
+    return server, port, command
+
+
+## Run get_args
+RCON_SERVER_HOSTNAME, RCON_SERVER_PORT, COMMAND = get_args()
+RCON_PASSWORD = getpass.getpass(prompt='RCON Password?')
+
+def VARIABLE_CHK():
+    """Verify needed variables have proper value"""
+    
+    class TermColor:
+        RED = '\033[93;41m'
+        MAGENTA = '\033[35m'
+        DEFAULT = '\033[00m'
+    
+    varchk = [RCON_SERVER_HOSTNAME, RCON_SERVER_PORT, RCON_PASSWORD]
+    
+    varlist = ["RCON_SERVER_HOSTNAME", "RCON_SERVER_PORT", "RCON_PASSWORD"]
+    
+    err_on_var = []
+    invalid_var = []
+    for id, x in enumerate(varchk):
+        if not x:
+            err_on_var.append(varlist[id])
+            break
+        elif id is ("2"):
+            ## if these variables are not ok as integers then flag, converting to float for good measure
+            if not float(x).is_integer():
+                invalid_var.append(varlist[id])
+    
+    if err_on_var:
+        print(TermColor.MAGENTA)
+        print('Missing value for:')
+        print(*err_on_var, sep='\n')
+        print(TermColor.DEFAULT)
+        
+    if invalid_var:
+        print(TermColor.RED)
+        print('Invalid value for:')
+        print(*invalid_var, sep='\n')    
+        print(TermColor.DEFAULT)
+        
+    if any((err_on_var, invalid_var)):
+        sys.exit(1)
+        
+VARIABLE_CHK()
 
 
 MESSAGE_TYPE_AUTH = 3
@@ -49,13 +124,18 @@ MESSAGE_ID = 0
 
 def sendMessage(sock, command_string, message_type):
     "Packages up a command string into a message and sends it"
+    
     try:
         command_len = len(command_string)
         byte_command = command_string.encode(encoding='ascii')
-        #message in bytes, id=4 + type=4 + body=variable + null terminator=2 (1 for python string and 1 for message terminator)
+        ## per Source RCON protocol documentation
+        ## id=4 + type=4 + message len in bytes + null terminator=2 (1 for python string and 1 for message terminator)
         message_size = (4 + 4 + command_len + 2)
+        ## struct string formatting
+        ## '='=native byte order + 'l'=long integer + message len in bytes + 's'=bytes character(default = 1) + '2s'=count len of two bytes not a repeat count
         message_format = ''.join(['=lll', str(command_len), 's2s'])
-        # change formatting logic for struct.pack, see https://stackoverflow.com/questions/17218357/python-3-3-struct-pack-wont-accept-strings
+        ## \x indicates hexidecimal notation, 0x00 = null
+        ## see ASCII table
         packed_message = struct.pack(message_format, message_size, MESSAGE_ID, message_type, byte_command, b'\x00\x00')
         sock.sendall(packed_message)
     except socket.timeout:
@@ -93,25 +173,22 @@ while interactive_mode:
     response_string = None
     response_id = -1
     response_type = -1
-    if len(sys.argv) > 1:
-        command_string = " ".join(sys.argv[1:])
+    if COMMAND:
+        command_string = COMMAND
         interactive_mode = False
         print("RCON command sent: {}".format(command_string))
     else:
         command_string = input("RCON Command: ")
-        if command_string in ('exit', 'Exit', 'E'):
+        if command_string in ('exit', 'Exit', 'e', 'E'):
             
             if sock:
                 sock.shutdown(socket.SHUT_RDWR)
                 sock.close()
             sys.exit("Exiting rcon client...\n")
         elif command_string in ('help','h','Help'):
-            print('\tUse exit or Exit to quit interactive mode.')
-            print('Many commands can be used via RCON, see https://ark.gamepedia.com/Console_Commands')
-            print('Tested commands:')
-            print('\tbroadcast\n\tserverchat\n\tgetchat')
-            print('\tsaveworld\n\tsetmessageoftheday\n\tdestroywilddinos\n\tsettimeofday')
-            print('\tlistplayers\n\tkillplayer\n\tserverchattoplayer')
+            print('\tUse exit or Exit to quit.')
+            #print('Many commands can be used via RCON, see ')
+            #print('Tested commands:')
             continue
         elif command_string in ('') or not command_string:
             continue
@@ -121,6 +198,7 @@ while interactive_mode:
     except ConnectionRefusedError:
         print("Unable to make RCON connection")
         sys.exit(3)
+            
     sock.settimeout(RCON_SERVER_TIMEOUT)
         # send SERVERDATA_AUTH
     sendMessage(sock, RCON_PASSWORD, MESSAGE_TYPE_AUTH)
@@ -132,13 +210,12 @@ while interactive_mode:
     sendMessage(sock, command_string, MESSAGE_TYPE_COMMAND)
         # get SERVERDATA_RESPONSE_VALUE (command response)
     response_string,response_id,response_type = getResponse(sock)
-    # trim off null characters and new line
-    response_txt = response_string.decode(encoding=('UTF-8'))[:-3]
+    # trim off one character - typically is newline
+    response_txt = response_string.decode(encoding=('UTF-8'))[:-1]
     if interactive_mode:
         print(response_txt)
     else:
         print(response_txt)
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
-
 # end main loop
