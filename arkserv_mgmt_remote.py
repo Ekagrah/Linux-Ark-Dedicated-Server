@@ -2,11 +2,9 @@
 
 ## paramiko library is needed and scp module for paramiko, pip install paramiko and pip install scp
 
-## Designed to run from a Windows machine to a linux hosted server, paths
-## in MOD_MGMT method would need to be changed to run successfully on Mac OS or Linux
+## Designed to run from a Windows machine to a linux hosted server, paths in MOD_MGMT method would need to be changed to run successfully on Mac OS or Linux
 
-## Additionally, I am using an ssh key, if password is preferred, leave LINUX_USER_KEY empty
-## To connect with password and comment out connection via key and the user key variable
+## Additionally, I am using an ssh key. If password is preferred, leave LINUX_USER_KEY empty and provide password
 
 ## See my documentation on how linux server is set up
 ## Dedicated Server - https://steamdb.info/app/376030
@@ -20,12 +18,18 @@
 #MAP = 'Aberration_P'
 #MAP = 'Extinction'
 #MAP = 'TheCenter'
-MAP = 'Ragnarok'
+#MAP = 'Ragnarok'
+MAP = 'Valguero_P'
+
+## Use this when playing a community map
+## Different var needed for some functions
+#MAP = '-MapModId=504122600'
+#MAP_NAME = 'Valhalla'
 #MAP = 'skiesofnazca'
 
-LOCAL_ARK_INSTALLDIR = 'F:\steam-games\steamapps\common\ARK'
+LOCAL_ARK_INSTALLDIR = 'D:\steam-games\steamapps\common\ARK'
 SERV_ARK_INSTALLDIR = '/opt/game'
-SERVER_HOSTNAME = '10.0.0.1'
+SERVER_HOSTNAME = '192.168.0.0'
 ## Maximum number of players
 NPLAYERS = '15'
 SERV_PORT = '7777'
@@ -34,27 +38,34 @@ SERV_SAVE_DIR = '${HOME}/Documents/arksavedata'
 
 LINUX_USER = 'user'
 ## key needs to be an openssh compatible format, if key file exists use that otherwise use password
-LINUX_USER_KEY = 'F:\putty\id_rsa'
+LINUX_USER_KEY = 'C:\keys\id_rsa'
 LINUX_USER_PASSWORD = ''
 RCON_SERVER_PORT = '32330'
-RCON_PASSWORD = 'password'
+RCON_PASSWORD = 'secret'
 
 ## Dictionary for desired mods
 MODNAMES = {
-        923607638:"More Stack",
-        719928795:"Platforms Plus",
-        821530042:"Upgrade Station",
-        736236773:"Backpack",
+        1380777369:"Additional Lighting",
+        893735676:"Ark Eternal",
+        1420423699:"ARKaeology Dinos",
         889745138:"Awesome Teleporter",
-        731604991:"Structures Plus",
-        506506101:"Better Beacons",
-        754885087:"More Tranq + Arrow",
-        859198322:"Craftable Element",
+        736236773:"Backpack",
+        1364327869:"Better Reusables",
         764755314:"CKF Arch",
+        1267677473:"Cross Aberration",
+        1230977449:"Exiles of the ARK",
+        849985437:"HG Stacking Mod 5000-90",
+        754885087:"More Tranq + Narcotic",
+        719928795:"Platforms Plus",
+        916807417:"Tek Helper",
+        821530042:"Upgrade Station",
         703724165:"Versatile Rafts",
-        1256264907:"Tools Evolved",
-        864857312:"Undies Evolved",
-        916807417:"Tek Helper"
+        1623256655:"Resource+",
+        1730382678:"Stark Industries",
+        665094472:"Deadly Weapons",
+        1529972975:"smuMeraBabyu",
+        1640117392:"Ark Settlements",
+        1430633911:"Upgradeable Tek Weapons"
 }
 ##------End user editable section------##
 
@@ -126,6 +137,19 @@ def VARIABLE_CHK():
 VARIABLE_CHK()
 
 
+class RconAction(argparse.Action):
+    '''Custom argparse action to open rcon interactively or to run specified command; used when --rcon provided on command line'''
+    
+    def __init__(self, option_strings, dest, nargs='*', const=True, default=None, type=None, choices=None, required=False, help=None, metavar=None):
+        super(RconAction, self).__init__(option_strings=option_strings, dest=dest, nargs=nargs, const=const, default=default, type=type, choices=choices, required=required, help=help, metavar=metavar)
+            
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values:
+            setattr(namespace, self.dest, values)
+        else:
+            setattr(namespace, self.dest, self.const)
+
+
 def get_args():
     """Function to get action, specified on command line, to take for server"""
     ## Assign description to help doc
@@ -148,15 +172,16 @@ def get_args():
     parser.add_argument(
         '--cleanup', help='Removes unnecessary mod content', action='store_true')
     parser.add_argument(
-        '--rcon', help='Launches interactive rcon session', action='store_true')
+        '--rcon', help='Launches interactive rcon session', action=RconAction)
     parser.add_argument(
         '--save', help='Makes a copy of server config, map save data, and player data files', action='store_true')
     parser.add_argument(
         '--emailstats', help='Sends an email with information on filesystems, cpu, etc.', action='store_true')
     
-    if not len(sys.argv) == 2:
+    if not len(sys.argv) >= 2:
         parser.print_help()
         sys.exit(1)
+        
     ## Array for argument(s) passed to script
     args = parser.parse_args()
     start = args.start
@@ -165,13 +190,13 @@ def get_args():
     monitor = args.monitor
     update = args.update
     updateonly = args.updateonly
-    modsupdate = args.modupdate
+    modupdate = args.modupdate
     cleanup = args.cleanup
     rcon = args.rcon
     save = args.save
     emailstats = args.emailstats
     ## Return all variable values
-    return start, shutdown, restart, monitor, update, updateonly, modsupdate, cleanup, rcon, save, emailstats
+    return start, shutdown, restart, monitor, update, updateonly, modupdate, cleanup, rcon, save, emailstats
 
 
 class ssh:
@@ -193,125 +218,102 @@ class ssh:
             print("No valid authenication methods provided")
             sys.exit(2)
     
-    def sendCommand(self, command, stdoutwrite=False, timeout=10, recv_size=2048):
-        """Send command over ssh transport connection"""
-        if self.client:
-            self.transport = self.client.get_transport()
-            self.channel = self.transport.open_session()
-            ## verify transport open or exit gracefully
-            if self.channel:
-                self.channel.settimeout(timeout)
-                self.channel.exec_command(command)
-                self.channel.shutdown_write()
-                stdout, stderr = [], []
-                while not self.channel.exit_status_ready():
-                    if self.channel.recv_ready():
-                        stdout.append(self.channel.recv(recv_size).decode("utf-8"))
-                        if stdoutwrite:
-                            sys.stdout.write(' '.join(stdout))    
-                    
-                    if self.channel.recv_stderr_ready():
-                        stderr.append(self.channel.recv_stderr(recv_size).decode("utf-8"))
-                exit_status = self.channel.recv_exit_status()
-                
-                while True:
-                    try:
-                        remainder_recvd = self.channel.recv(recv_size).decode("utf-8")
-                        if not remainder_recvd and not self.channel.recv_ready():
-                            break
-                        else:
-                            stdout.append(remainder_recvd)
-                            if stdoutwrite:
-                                sys.stdout.write(' '.join(stdout))
-                    except socket.timeout:
-                        break
-                        
-                while True:
-                    try:
-                        remainder_stderr = self.channel.recv_stderr(recv_size).decode("utf-8")
-                        if not remainder_stderr and not self.channel.recv_stderr_ready():
-                            break
-                        else:
-                            stderr.append(remainder_stderr)
-                    except socket.timeout:
-                        break
-                        
-                stdout = ''.join(stdout)
-                stderr = ''.join(stderr)
-                
-                #return (stdout, stderr, exit_status)
-                return stdout
-                        
-        else:
-            print(TermColor.RED)
-            sys.exit("Connection not opened.")
-    ## end def sendCommand
-    
-    def parseCommand(self, command, target, stdoutwrite=False, timeout=0, recv_size=2048):
-        """Send command over ssh transport connection, regex pattern matching to see if return is desireable"""
-        if self.client:
-            self.transport = self.client.get_transport()
-            self.channel = self.transport.open_session()
-            if self.channel:
-                self.channel.settimeout(timeout)
-                self.channel.exec_command(command)
-                self.channel.shutdown_write()
-                fd, fp = tempfile.mkstemp()
-                f = open(fp, 'a+')
-                stdout, stderr = [], []
-                while not self.channel.exit_status_ready():
-                    if self.channel.recv_ready():
-                        recvd = self.channel.recv(recv_size).decode("utf-8")
+    def sendCommand(self, command, stdoutwrite=False, parse=False, target=None, timeout=10, recv_size=2048):
+        """Method to send command over ssh transport channel"""
+        
+        parse_return = None
+        self.transport = self.client.get_transport()
+        self.channel = self.transport.open_channel(kind='session')
+        self.channel.settimeout(timeout)
+        ## verify channel open or exit gracefully
+        try:
+            self.channel.exec_command(command)
+            self.channel.shutdown(1)
+            fd, fp = tempfile.mkstemp()
+            f = open(fp, 'a+')
+            stdout, stderr = [], []
+            while not self.channel.exit_status_ready():
+                if self.channel.recv_ready():
+                    recvd = self.channel.recv(recv_size).decode("utf-8")
+                    stdout.append(recvd)
+                    if stdoutwrite:
+                        sys.stdout.write(''.join(recvd))
+                    if parse:
                         f.write(recvd)
-                        if stdoutwrite:
-                            sys.stdout.write(recvd)
-                    
-                    if self.channel.recv_stderr_ready():
-                        stderr.append(self.channel.recv_stderr(recv_size).decode("utf-8"))
-                exit_status = self.channel.recv_exit_status()
                 
-                while True:
-                    try:
-                        remainder_recvd = self.channel.recv(recv_size).decode("utf-8")
-                        if not remainder_recvd and not self.channel.recv_ready():
-                            break
-                        else:
+                if self.channel.recv_stderr_ready():
+                    stderr.append(self.channel.recv_stderr(recv_size).decode("utf-8"))
+            
+            while True:
+                try:
+                    remainder_recvd = self.channel.recv(recv_size).decode("utf-8")
+                    if not remainder_recvd and not self.channel.recv_ready():
+                        break
+                    else:
+                        stdout.append(remainder_recvd)
+                        
+                        if stdoutwrite:
+                            sys.stdout.write(''.join(stdout))
+                        if parse:
                             f.write(remainder_recvd)
-                            if stdoutwrite:
-                                sys.stdout.write(remainder_recvd)
-                    except socket.timeout:
-                        continue
+                except socket.timeout:
+                    break
+                    
+            while True:
+                try:
+                    remainder_stderr = self.channel.recv_stderr(recv_size).decode("utf-8")
+                    if not remainder_stderr and not self.channel.recv_stderr_ready():
+                        break
+                    else:
+                        stderr.append(remainder_stderr)
                         
-                while True:
-                    try:
-                        remainder_stderr = self.channel.recv_stderr(recv_size).decode("utf-8")
-                        if not remainder_stderr and not self.channel.recv_stderr_ready():
-                            break
-                        else:
-                            stderr.append(remainder_stderr)
-                    except socket.timeout:
-                        continue
-                        
+                        if stdoutwrite:
+                            sys.stdout.write(''.join("Error ", stderr))
+                            
+                except socket.timeout:
+                    break
+            
+            exit_status = self.channel.recv_exit_status()
+            
+            if parse:
                 with open(fp) as f:
                     f.seek(0)
                     pattern = re.compile(target)
                     for line in f:
                         if pattern.match(line):
-                            return True
+                            parse_return = True
                             break
                         else:
-                            return False
-                        
+                            parse_return = False
+        except:
+            ## SSHException
+            err, err_value, err_trace = sys.exc_info()
+            sys.exit("Error {}: {}".format(err_value, err))
+            
+        if parse:
+            return parse_return
         else:
-            print(TermColor.RED)
-            sys.exit("Connection not opened.")
-    ## end def parseCommand
+            return stdout, stderr, exit_status
+    ## end def sendCommand
 ## end ssh class
+
+
+def UPCHK():
+    '''Check if there is a "ShooterGameServ" process '''
+    
+    do_check = sshconnect.sendCommand("/usr/bin/pgrep -x ShooterGameServ 2>/dev/null", parse=True, target="[0-9]*")
+    return do_check
 
 
 def RCON_CLIENT(*args):
     """Remote Console Port access. Limited commands are available. Original code by Dunto, updated/modified by Ekagrah"""
+    
+    if not UPCHK():
+        sys.exit("Server not running, no RCON available")
         
+    ##Ark Help from http://www.ark-survival.net/en/2015/07/09/rcon-tutorial/
+    ## and https://cjsavage.com/guides/linux/ark-dedicated-save-on-exit.html
+
     ## DO NOT EDIT THESE VARIABLES UNLESS YOU UNDERSTAND THE CONSEQUENCES
     MESSAGE_TYPE_AUTH = 3
     MESSAGE_TYPE_AUTH_RESP = 2
@@ -359,6 +361,7 @@ def RCON_CLIENT(*args):
     
     ## Begin main loop
     interactive_mode = True
+    sock = None
     while interactive_mode:
         command_string = None
         response_string = None
@@ -370,11 +373,21 @@ def RCON_CLIENT(*args):
             interactive_mode = False
         else:
             command_string = input("RCON Command: ")
-            if command_string in ('exit', 'Exit', 'E'):
+            if command_string in ('exit', 'Exit'):
                 if sock:
                     sock.shutdown(socket.SHUT_RDWR)
                     sock.close()
                 sys.exit("Exiting rcon client...")
+            elif command_string in ('help','h','Help'):
+                print('\tUse exit or Exit to quit interactive mode.')
+                print('Many commands can be used via RCON, see https://ark.gamepedia.com/Console_Commands')
+                print('Tested commands:')
+                print('\tbroadcast\n\tserverchat\n\tgetchat')
+                print('\tsaveworld\n\tsetmessageoftheday\n\tdestroywilddinos\n\tsettimeofday')
+                print('\tlistplayers\n\tkillplayer\n\tserverchattoplayer\n\tGetSteamIDForPlayerID\n\tKickPlayer')
+                continue
+            elif command_string in ('') or not command_string:
+                continue
 
         try:
             sock = socket.create_connection((SERVER_HOSTNAME, RCON_SERVER_PORT))
@@ -383,15 +396,12 @@ def RCON_CLIENT(*args):
             break
         
         sock.settimeout(RCON_SERVER_TIMEOUT)
-            ## send SERVERDATA_AUTH
+        
         sendMessage(sock, RCON_PASSWORD, MESSAGE_TYPE_AUTH)
-            ## get empty SERVERDATA_RESPONSE_VALUE (auth response 1 of 2)
         response_string,response_id,response_type = getResponse(sock)
-            ## get SERVERDATA_AUTH_RESPONSE (auth response 2 of 2)
         response_string,response_id,response_type = getResponse(sock)
-            ## send SERVERDATA_EXECCOMMAND
+
         sendMessage(sock, command_string, MESSAGE_TYPE_COMMAND)
-            ## get SERVERDATA_RESPONSE_VALUE (command response)
         response_string,response_id,response_type = getResponse(sock)
         ## trim off null characters and new line
         response_txt = response_string.decode(encoding=('UTF-8'))[:-3]
@@ -408,55 +418,65 @@ def RCON_CLIENT(*args):
 
 def CHECK_PLAYERS():
     """Check if players are connected to server"""
+    
+    pattern = re.compile(".*[Nn]o.[Pp]layers.[Cc]onnected.*")
+
+    PLAYER_LIST = RCON_CLIENT('listplayers')
+    if pattern.search(PLAYER_LIST):
+        return False
+    else:
+        return PLAYER_LIST
+        
+
+def PLAYER_MONITOR():
+    """Monitor which players are connected, if any"""
+    
     chktimeout=9
-    while True:
-        if chktimeout > 0:
-            PLAYER_LIST = RCON_CLIENT('listplayers')
-            pattern = re.compile(".*[Nn]o.[Pp]layers.[Cc]onnected.*")
-            if pattern.search(PLAYER_LIST):
-                return False
-            else:
-                print(PLAYER_LIST)
-                time.sleep(20)
-                chktimeout -= 1
+    while chktimeout > 0:
+        _ret = CHECK_PLAYERS()
+        if not _ret:
+            return True
         else:
-            print('Timeout waiting for users to log off')
-            ## Notify
-            break
+            print(_ret)
+            time.sleep(20)
+            chktimeout -= 1
+    else:
+        print('Timeout waiting for users to log off')
+        sys.exit(7)
 
 
 def UPSERVER():
-    TMUX_CHK = sshconnect.parseCommand("/usr/bin/pgrep -x ShooterGameServ 2>/dev/null", "[0-9]*")
-    if TMUX_CHK:
+    
+    if UPCHK():
         print("Server seems to be running already")
     else:
         print("Starting server")
-        sshconnect.sendCommand('{}/ShooterGame/Binaries/Linux/ShooterGameServer "{}?listen?MaxPlayers={}?QueryPort={}?Port={}?RCONEnabled={}?RCONPort={}?RCONServerGameLogBuffer=400?AllowRaidDinoFeeding=True?ForceFlyerExplosives=True -servergamelog -NoBattlEye -USEALLAVAILABLECORES" &'.format(SERV_ARK_INSTALLDIR, MAP, NPLAYERS, QUERY_PORT, SERV_PORT, RCON_ACTIVE, RCON_SERVER_PORT))
-        ## -usecache -server -automanagedmods ?PreventMateBoost ?PreventDownloadSurvivor=True?PreventDownloadDinos=True?PreventDownloadItems=True -ForceRespawnDinos
+        sshconnect.sendCommand('{}/ShooterGame/Binaries/Linux/ShooterGameServer "{}?listen?MaxPlayers={}?QueryPort={}?Port={}?RCONEnabled={}?RCONPort={}?RCONServerGameLogBuffer=400?ForceFlyerExplosives=True?PreventMateBoost -servergamelog -NoBattlEye -USEALLAVAILABLECORES" &'.format(SERV_ARK_INSTALLDIR, MAP, NPLAYERS, QUERY_PORT, SERV_PORT, RCON_ACTIVE, RCON_SERVER_PORT))
+        ## -usecache -server -automanagedmods  ?PreventDownloadSurvivor=True ?PreventDownloadDinos=True ?PreventDownloadItems=True ?ServerAdminPassword= ?AllowRaidDinoFeeding=True -ForceRespawnDinos
     
 
 def DOWNSERVER():
     """Shutdown server instance"""
     
-    downcounter = 7
-    UPCHK = sshconnect.parseCommand("/usr/bin/pgrep -x ShooterGameServ 2>/dev/null", "[0-9]*")
-    SERV_PID = sshconnect.sendCommand("/usr/bin/pgrep -x ShooterGameServ 2>/dev/null")
-    if UPCHK:
+    downcounter = 4
+    
+    if UPCHK():
+        SERV_PID = sshconnect.sendCommand("/usr/bin/pgrep -x ShooterGameServ 2>/dev/null")
         print("Shutting down server...")
         sshconnect.sendCommand("kill -2 {}".format(SERV_PID))
         time.sleep(10)
     else:
         print("Unable to find running server")
     while True:
-        ALT_CHK = sshconnect.parseCommand("/usr/bin/pgrep -x ShooterGameServ 2>/dev/null", "[0-9]*")
-        if ALT_CHK:
+        if UPCHK():
             if downcounter == 0:
                 print('Forcfully killing server instance')
-                sshconnect.sendCommand("for i in $(/usr/bin/pgrep -c ShooterGameServ 2>/dev/null); do kill -9 $i; done")
+                sshconnect.sendCommand("for i in $(/usr/bin/pgrep -u {} ShooterGameServ -d ' ' 2>/dev/null); do kill -9 $i; done".format(LINUX_USER), stdoutwrite=True)
+                time.sleep(5)
                 break
             else:
                 print("Waiting for server to go down gracefully")
-                time.sleep(10)
+                time.sleep(5)
                 downcounter -= 1
         else:
             print("Unable to find running server")
@@ -464,17 +484,24 @@ def DOWNSERVER():
 
 
 def RESTART_SERVER():
-    """Check if players connected then shutdown and start server"""
+    """Check if no players connected, shutdown then start server"""
     
-    RCON_CLIENT("broadcast Server going down for maintenance in 3 minutes")
+    #try:
+        #MAP = MAP_NAME
+    #except:
+        #pass
     
-    CHECK_PLAYERS()
+    if not CHECK_PLAYERS():
+        pass
+    else:
+        RCON_CLIENT("broadcast Server going down for maintenance in 3 minutes")
+        PLAYER_MONITOR()
     
-    RECENT_SAVE = sshconnect.parseCommand('if [[ $(( $(/bin/date +%s) - $(/usr/bin/stat -c %Y {}/ShooterGame/Saved/SavedArks/{}.ark) )) -lt 180 ]]; then echo "save-found" ; fi'.format(SERV_ARK_INSTALLDIR, MAP), "save-found")
+    RECENT_SAVE = sshconnect.sendCommand('if [[ $(( $(/bin/date +%s) - $(/usr/bin/stat -c %Y {}/ShooterGame/Saved/SavedArks/{}.ark) )) -lt 180 ]]; then echo "save-found" ; fi'.format(SERV_ARK_INSTALLDIR, MAP), parse=True, target="save-found")
     if not RECENT_SAVE:
         RCON_CLIENT("saveworld")
         time.sleep(10)
-        SAVE_CHK = sshconnect.parseCommand('if [[ $(( $(/bin/date +%s) - $(/usr/bin/stat -c %Y {}/ShooterGame/Saved/SavedArks/{}.ark) )) -lt 180 ]]; then echo "save-found" ; fi'.format(SERV_ARK_INSTALLDIR, MAP), "save-found")
+        SAVE_CHK = sshconnect.sendCommand('if [[ $(( $(/bin/date +%s) - $(/usr/bin/stat -c %Y {}/ShooterGame/Saved/SavedArks/{}.ark) )) -lt 180 ]]; then echo "save-found" ; fi'.format(SERV_ARK_INSTALLDIR, MAP), parse=True, target="save-found")
         if SAVE_CHK:
             print("Recent save found")
             DOWNSERVER()
@@ -493,11 +520,11 @@ def SERV_MONITOR():
     """Checks on status of server"""
     ## increase as needed, especially for community maps
     upcounter = 7
-    SERV_STATUS_CHK = sshconnect.parseCommand("/usr/bin/pgrep -x ShooterGameServ 2>/dev/null", "[0-9]*")
+    SERV_STATUS_CHK = sshconnect.sendCommand("/usr/bin/pgrep -x ShooterGameServ 2>/dev/null", parse=True, target="[0-9]*")
     if SERV_STATUS_CHK:
         print("Server is running")
         while True:
-            PORT_CHK = sshconnect.parseCommand("/bin/netstat -puln 2>/dev/null | /bin/grep -E '.*:{}.*'".format(SERV_PORT_B), ".*:{}.*".format(SERV_PORT_B))
+            PORT_CHK = sshconnect.sendCommand("/bin/netstat -puln 2>/dev/null | /bin/grep -E '.*:{}.*'".format(SERV_PORT_B), parse=True, target=".*:{}.*".format(SERV_PORT_B))
             if PORT_CHK:
                 print("Server is up and should be accessible")
                 break
@@ -518,7 +545,7 @@ def CHECK_SERV_UPDATE():
     ## fix for conflicting file that can prevent getting the most recent version
     sshconnect.sendCommand("if [[ -e ${HOME}/.steam/steam/appcache/appinfo.vdf ]]; then rm ${HOME}/.steam/steam/appcache/appinfo.vdf ; fi")
     ## See if update is available
-    UPDATE_CHK = sshconnect.parseCommand('new_vers="$( /usr/games/steamcmd +login anonymous  +app_info_update 1 +app_info_print 376030 +quit | /bin/grep -A5 "branches" | /usr/bin/awk -F \'\"\' \'/buildid/{{print $4}}\' )" ; curr_vers="$( /usr/bin/awk -F \'\"\' \'/buildid/{{print $4}}\' {0}/steamapps/appmanifest_376030.acf )\" ; if [[ ${{new_vers}} -gt ${{curr_vers}} ]]; then echo "update-needed" ; else echo "up-to-date" ; fi'.format(SERV_ARK_INSTALLDIR), "up-to-date")
+    UPDATE_CHK = sshconnect.sendCommand('new_vers="$( /usr/games/steamcmd +login anonymous  +app_info_update 1 +app_info_print 376030 +quit | /bin/grep -A5 "branches" | /usr/bin/awk -F \'\"\' \'/buildid/{{print $4}}\' )" ; curr_vers="$( /usr/bin/awk -F \'\"\' \'/buildid/{{print $4}}\' {0}/steamapps/appmanifest_376030.acf )\" ; if [[ ${{new_vers}} -gt ${{curr_vers}} ]]; then echo "update-needed" ; else echo "up-to-date" ; fi'.format(SERV_ARK_INSTALLDIR), parse=True, target="up-to-date")
     if UPDATE_CHK:
         print("Server reports up-to-date")
         return False
@@ -533,7 +560,7 @@ def UPDATE():
         while updatetimeout > 0:
             ## this is slow and times out occasionally
             sshconnect.sendCommand("/usr/games/steamcmd +login anonymous +force_install_dir {} +app_update 376030 public validate +quit | /usr/bin/tee /tmp/arkudtmp".format(SERV_ARK_INSTALLDIR), stdoutwrite=True, timeout=90)
-            UPD_STATE = sshconnect.parseCommand("/usr/bin/tail -5 /tmp/arkudtmp | /usr/bin/awk -F \" \" '/.*App.*376030.*/{{print $1}}' ", "Success.*")
+            UPD_STATE = sshconnect.sendCommand("/usr/bin/tail -5 /tmp/arkudtmp | /usr/bin/awk -F \" \" '/.*App.*376030.*/{{print $1}}' ", parse=True, target="Success.*")
             ## so we must verify it completed
         
             if UPD_STATE:
@@ -556,14 +583,15 @@ def UPDATE():
 
 def FNC_DO_SAVE():
     """Archive map, player/tribe, and configuration files into a tar"""
-    RECENT_SAVE = sshconnect.parseCommand('if [[ $(( $(\date +%s) - $(\stat -c %Y {}/ShooterGame/Saved/SavedArks/{}.ark) )) -lt 180 ]]; then echo "save-found" ; fi'.format(SERV_ARK_INSTALLDIR, MAP), "save-found")
+    
+    RECENT_SAVE = sshconnect.sendCommand('if [[ $(( $(\date +%s) - $(\stat -c %Y {}/ShooterGame/Saved/SavedArks/{}.ark) )) -lt 180 ]]; then echo "save-found" ; fi'.format(SERV_ARK_INSTALLDIR, MAP), parse=True, target="save-found")
     if RECENT_SAVE:
         sshconnect.sendCommand("curr_date=\"$( /bin/date +%b%d_%H-%M )\" map=\"{0}\"; cd {2} ; tar_dir=\"${{map%_P}}-${{curr_date}}\" ; if [[ ! -d \"${{tar_dir}}\" ]] ; then /bin/mkdir -p \"${{tar_dir}}\" ; fi ; /bin/echo \"Copying files to {2}/${{tar_dir}}...\" ; /bin/cp \"{1}\"/ShooterGame/Saved/Config/LinuxServer/Game.ini \"${{tar_dir}}\"/ ; /bin/cp \"{1}\"/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini \"${{tar_dir}}\"/ ; /bin/cp \"{1}\"/ShooterGame/Saved/SavedArks/{0}.ark \"${{tar_dir}}\"/{0}_${{curr_date}}.ark ; /bin/cp \"{1}\"/ShooterGame/Saved/SavedArks/{0}_AntiCorruptionBackup.bak \"${{tar_dir}}\"/ ; /bin/cp \"{1}\"/ShooterGame/Saved/SavedArks/*.arkprofile \"${{tar_dir}}\"/ ; /bin/cp \"{1}\"/ShooterGame/Saved/SavedArks/*.arktribe \"${{tar_dir}}\"/ ; /bin/echo \"Making tarball...\" ; /bin/tar -czf ark-{0}-\"${{curr_date}}\".tar ./\"${{tar_dir}}\" && (/bin/echo \"Successfully made save bundle\") || (/bin/echo \"Unable to make tarball...\") ; /bin/rm -rf ./${{tar_dir}}".format(MAP, SERV_ARK_INSTALLDIR, SERV_SAVE_DIR), stdoutwrite=True)
         
     else:
         RCON_CLIENT("saveworld")
         time.sleep(10)
-        SAVE_CHK = sshconnect.parseCommand('if [[ $(( $(\date +%s) - $(\stat -c %Y {}/ShooterGame/Saved/SavedArks/{}.ark) )) -lt 180 ]]; then echo "save-found" ; fi'.format(SERV_ARK_INSTALLDIR, MAP), "save-found")
+        SAVE_CHK = sshconnect.sendCommand('if [[ $(( $(\date +%s) - $(\stat -c %Y {}/ShooterGame/Saved/SavedArks/{}.ark) )) -lt 180 ]]; then echo "save-found" ; fi'.format(SERV_ARK_INSTALLDIR, MAP), parse=True, target="save-found")
         if SAVE_CHK:
             sshconnect.sendCommand("curr_date=\"$( /bin/date +%b%d_%H-%M )\" map=\"{0}\"; cd {2} ; tar_dir=\"${{map%_P}}-${{curr_date}}\" ; if [[ ! -d \"${{tar_dir}}\" ]] ; then /bin/mkdir -p \"${{tar_dir}}\" ; fi ; /bin/echo \"Copying files to {2}/${{tar_dir}}...\" ; /bin/cp \"{1}\"/ShooterGame/Saved/Config/LinuxServer/Game.ini \"${{tar_dir}}\"/ ; /bin/cp \"{1}\"/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini \"${{tar_dir}}\"/ ; /bin/cp \"{1}\"/ShooterGame/Saved/SavedArks/{0}.ark \"${{tar_dir}}\"/{0}_${{curr_date}}.ark ; /bin/cp \"{1}\"/ShooterGame/Saved/SavedArks/{0}_AntiCorruptionBackup.bak \"${{tar_dir}}\"/ ; /bin/cp \"{1}\"/ShooterGame/Saved/SavedArks/*.arkprofile \"${{tar_dir}}\"/ ; /bin/cp \"{1}\"/ShooterGame/Saved/SavedArks/*.arktribe \"${{tar_dir}}\"/ ; /bin/echo \"Making tarball...\" ; /bin/tar -czf ark-{0}-\"${{curr_date}}\".tar ./\"${{tar_dir}}\" && (/bin/echo \"Successfully made save bundle\") || (/bin/echo \"Unable to make tarball...\") ; /bin/rm -rf ./${{tar_dir}}".format(MAP, SERV_ARK_INSTALLDIR, SERV_SAVE_DIR), stdoutwrite=True)
         else:
@@ -573,10 +601,23 @@ def FNC_DO_SAVE():
 
 def MOD_MGMT():
     """Check for updates to local mod files and copy to server"""
+    
     MODS_UPDATED = {}
+    
     def progress(filename, size, sent):
         sys.stdout.write("{}\'s progress: {:.2f} \r".format(filename.decode("utf-8"), float(sent)/float(size)*100) )
+    
     scp = SCPClient(sshconnect.client.get_transport(), progress = progress)
+    
+    def transfer(mod_id):
+        ## copy items to server
+        scp.put('{0}\ShooterGame\Content\Mods\{1}.mod'.format(LOCAL_ARK_INSTALLDIR, mod_id), '{}/ShooterGame/Content/Mods/'. format(SERV_ARK_INSTALLDIR))
+        sys.stdout.flush()
+        sys.stdout.write("\n")
+        scp.put('{0}\ShooterGame\Content\Mods\{1}'.format(LOCAL_ARK_INSTALLDIR, mod_id), recursive=True, remote_path='{}/ShooterGame/Content/Mods/'.format(SERV_ARK_INSTALLDIR))
+        sys.stdout.flush()
+        sys.stdout.write("\n")
+        
     
     for id, name in MODNAMES.items():
         ITEM_MTIME = os.path.getmtime(r'{}\ShooterGame\Content\Mods\{}.mod'.format(LOCAL_ARK_INSTALLDIR, id))
@@ -585,22 +626,34 @@ def MOD_MGMT():
         ## if the time difference (current time - file modification time) is less than 24 hours then act
         if time_diff < 86400:
             ## add to dictonary used to log updates
-            MODS_UPDATED[id]=name
-            ## copy items to server
-            scp.put('{0}\ShooterGame\Content\Mods\{1}.mod'.format(LOCAL_ARK_INSTALLDIR, id), '{}/ShooterGame/Content/Mods/'. format(SERV_ARK_INSTALLDIR))
-            sys.stdout.flush()
-            sys.stdout.write("\n")
-            scp.put('{0}\ShooterGame\Content\Mods\{1}'.format(LOCAL_ARK_INSTALLDIR, id), recursive=True, remote_path='{}/ShooterGame/Content/Mods/'.format(SERV_ARK_INSTALLDIR))
-            sys.stdout.flush()
-            sys.stdout.write("\n")
+            MODS_UPDATED[id] = name
+    
     if MODS_UPDATED:
         print(MODS_UPDATED)
+        
+        if not UPCHK():
+            for id, name in MODS_UPDATED.items():
+                transfer(id)
+            print('Server not started automatically')
+        elif UPCHK() and not CHECK_PLAYERS():
+            DOWNSERVER()
+            for id, name in MODS_UPDATED.items():
+                transfer(id)
+            UPSERVER()
+        elif CHECK_PLAYERS():
+            RCON_CLIENT("broadcast Server going down for maintenance in 3 minutes")
+            print('Players are connected, wait or kick to continue.')
+        else:
+            print("Server restart will be required, verify no one is connected and that server is shutdown.")
+    else:
+        print('No updates found')
+    
     scp.close()
 
    
 def MOD_CLEANUP():
     """Clean up extra mod content that is not part of the active mods in GameUserSettings.ini"""
-    DIR_CHK = sshconnect.parseCommand("if [[ -d {}/ShooterGame/Content/Mods ]]; then echo 'exists' ; fi".format(SERV_ARK_INSTALLDIR), "exists")
+    DIR_CHK = sshconnect.sendCommand("if [[ -d {}/ShooterGame/Content/Mods ]]; then echo 'exists' ; fi".format(SERV_ARK_INSTALLDIR), parse=True, target="exists")
     if DIR_CHK:
         ## if existing file has match under ActiveMods then remove it from array
         sshconnect.sendCommand("/bin/sed -n 's/ActiveMods=//p' {0}/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini | /usr/bin/awk -v FS=\",\" '{{OFS=\" \"; $1=$1; print $0}}' ; declare -a mod_list ; while IFS=  read -r -d $'\0'; do mod_list+=(\"$REPLY\") ; done < <(/usr/bin/find ./ -name '*.mod' -print0 | /bin/sed -e 's|./111111111.mod||' -e 's|./||g' -e 's|.mod||g') ; arr_id=0 ; for m in $(/bin/echo ${{mod_list[@]}} ) ; do if [[ $(/bin/echo ${{active_mods}} | /bin/grep -o ${{m}}) == \"${{m}}\" ]]; then unset mod_list[${{arr_id}}] ; else /bin/echo \"Marking ${{m}} for removal\" fi ; let arr_id++ ; done ; unset arr_id ; if [[ ${{#mod_list[@]}} -gt 0 ]] ; then cd {0}/ShooterGame/Content/Mods ; for d in $(/bin/echo ${{mod_list[@]}}) ; do ; /bin/echo \"Deleting data for mod: ${{d}}\" ; rm -rf ./${{d}}* ; done ; else /bin/echo \"No files to remove/modify\" ; fi ; cd /opt ; unset active_mods ; unset mod_list ".format(SERV_ARK_INSTALLDIR))
@@ -665,19 +718,22 @@ def EMAIL_STATS():
 
 #============================#
 ## Run get_args
-start, shutdown, restart, monitor, update, updateonly, modsupdate, cleanup, rcon, save, emailstats = get_args()
-
-if rcon:
-    RCON_CLIENT()
-    sys.exit(0)
+start, shutdown, restart, monitor, update, updateonly, modupdate, cleanup, rcon, save, emailstats = get_args()
 
 ## Create ssh connection
 sshconnect = ssh(SERVER_HOSTNAME, 22, LINUX_USER, LINUX_USER_PASSWORD)
 
-if start:
+if rcon:
+    if isinstance(rcon, bool):
+        RCON_CLIENT()
+    else:
+        rcon_return = RCON_CLIENT(' '.join(rcon))
+        print(rcon_return)
+elif start:
     UPSERVER()
     SERV_MONITOR()
 elif shutdown:
+    PLAYER_MONITOR()
     DOWNSERVER()
     SERV_MONITOR()
 elif restart:
@@ -691,15 +747,15 @@ elif update:
         SERV_MONITOR()
 elif updateonly:
     UPDATE()
-elif modsupdate:
+elif modupdate:
     MOD_MGMT()
+    SERV_MONITOR()
 elif cleanup:
     MOD_CLEANUP()
 elif save:
     FNC_DO_SAVE()
 elif emailstats:
-    #EMAIL_STATS()
-    print('WIP')
+    EMAIL_STATS()
 else:
     print('No actions provided, none taken.')
     print('See help, --help, for usage')

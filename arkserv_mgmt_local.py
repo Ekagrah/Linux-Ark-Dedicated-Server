@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+
 ## see my documentation on how linux server is set up
 ## Dedicated Server - https://steamdb.info/app/376030
 ## Full Game - https://steamdb.info/app/346110
 
 ## Can change the server launch options in the similarly named function
 
-## Auto managing of mods requires -automanagedmods specified on commandline for server launch, uses ActiveMods from GameUserSettings and running ... steamcmdsetup ... but doesn't play well with my server setup
+## Auto managing of mods requires -automanagedmods specified on commandline for server launch, uses ActiveMods from GameUserSettings and running ... steamcmdsetup ... but doesn't play well with my server setup, submitted a bug
 
 ##------Start user editable section------##
 
@@ -14,20 +15,30 @@
 #MAP = 'Aberration_P'
 #MAP = 'Extinction'
 #MAP = 'TheCenter'
-MAP = 'Ragnarok'
-#MAP = 'skiesofnazca'
+#MAP = 'Ragnarok'
+MAP = 'Valguero_P'
+
+## Use this when playing a community map
+## Different var needed for some functions
+#MAP = '-MapModId=504122600'
+#MAP_NAME = 'Valhalla'
+#MAP_NAME = 'skiesofnazca'
 
 SERV_ARK_INSTALLDIR = '/opt/game'
 ## Maximum number of players, default 70
 NPLAYERS = '15'
 SERV_PORT = '7777'
 QUERY_PORT = '27015'
+
+## File used to to track if a new connection has been made
+CONN_TRACK_FILE = '/opt/bin/estb-conn'
+
 RCON_ACTIVE = 'True'
 RCON_SERVER_PORT = '32330'
-RCON_PASSWORD = 'password'
+RCON_PASSWORD = 'secret'
 
 ## Email address to send and receive from
-EMAIL_ADDR = 'email@gmail.com'
+EMAIL_ADDR = 'email@example.com'
 ## Directory used when creating data archive
 SERV_SAVE_DIR = '/home/user/Documents/arksavedata'
 
@@ -97,8 +108,24 @@ def VARIABLE_CHK():
 VARIABLE_CHK()
 
 
+class RconAction(argparse.Action):
+    '''Custom argparse action to open rcon interactively or to run specified command; used when --rcon provided on command line'''
+    
+    def __init__(self, option_strings, dest, nargs='*', const=True, default=None, type=None, choices=None, required=False, help=None, metavar=None):
+        #print('Using custom argparse action')
+        super(RconAction, self).__init__(option_strings=option_strings, dest=dest, nargs=nargs, const=const, default=default, type=type, choices=choices, required=required, help=help, metavar=metavar)
+            
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values:
+            setattr(namespace, self.dest, values)
+        else:
+            setattr(namespace, self.dest, self.const)
+
+
+#def get_args(args=None):
 def get_args():
-    """Function to get action, specified on command line, to take for server"""
+    """Function to get action, specified on command line"""
+    
     ## Assign description to help doc
     parser = argparse.ArgumentParser(description='Script manages various functions taken on local linux ARK server. One action accepted at a time.', allow_abbrev=False)
     ## Add arguments. When argument present on command line then it is stored as True, else returns False
@@ -117,11 +144,13 @@ def get_args():
     parser.add_argument(
         '--cleanup', help='Removes unnecessary mod content', action='store_true')
     parser.add_argument(
-        '--rcon', help='Launches interactive rcon session', action='store_true')
+        '--rcon', help='Launches interactive rcon session, can also specify command to be sent', action=RconAction)
     parser.add_argument(
         '--save', help='Makes a copy of server config, map save data, and player data files', action='store_true')
     parser.add_argument(
         '--emailstats', help='Sends an email with information on filesystems, cpu, etc.', action='store_true')
+    parser.add_argument(
+        '--connections', help='Monitor connections, intended for use as a cronjob', action='store_true')
     ## Array for argument(s) passed to script
     args = parser.parse_args()
     start = args.start
@@ -134,16 +163,17 @@ def get_args():
     rcon = args.rcon
     save = args.save
     emailstats = args.emailstats
+    connections = args.connections
     ## Return all variable values
-    return start, shutdown, restart, monitor, update, updateonly, cleanup, rcon, save, emailstats
+    return start, shutdown, restart, monitor, update, updateonly, cleanup, rcon, save, emailstats, connections
     
-    if not len(sys.argv) == 1:
+    if not len(sys.argv) >= 2:
         parser.print_help()
         sys.exit(1)
 
 
 def SERV_STATUS_CHK():
-    """Method for verifying server is running"""
+    """function for verifying server is running"""
     output = ''
     try:
         output = subprocess.check_output("/usr/bin/pgrep -x ShooterGameServ 2>/dev/null", shell=True).decode("utf-8")
@@ -220,6 +250,7 @@ def RCON_CLIENT(*args):
     
     ## Begin main loop
     interactive_mode = True
+    sock = None
     while interactive_mode:
         command_string = None
         response_string = None
@@ -231,12 +262,18 @@ def RCON_CLIENT(*args):
             interactive_mode = False
         else:
             command_string = input("RCON Command: ")
-            if command_string in ('exit', 'Exit', 'E'):
+            if command_string in ('exit', 'Exit'):
                 
                 if sock:
                     sock.shutdown(socket.SHUT_RDWR)
                     sock.close()
                 sys.exit("Exiting rcon client...")
+            elif command_string in ('help','h','Help'):
+                print('\tUse exit or Exit to quit.')
+                print('Tested commands: briadcast, ')
+                continue
+            elif command_string in ('') or not command_string:
+                continue
 
         try:
             sock = socket.create_connection(("127.0.0.1", RCON_SERVER_PORT))
@@ -245,15 +282,16 @@ def RCON_CLIENT(*args):
             break
             
         sock.settimeout(RCON_SERVER_TIMEOUT)
-            ## send SERVERDATA_AUTH
+
+        ## send SERVERDATA_AUTH
         sendMessage(sock, RCON_PASSWORD, MESSAGE_TYPE_AUTH)
-            ## get empty SERVERDATA_RESPONSE_VALUE (auth response 1 of 2)
+        ## get empty SERVERDATA_RESPONSE_VALUE (auth response 1 of 2)
         response_string,response_id,response_type = getResponse(sock)
-            ## get SERVERDATA_AUTH_RESPONSE (auth response 2 of 2)
+        ## get SERVERDATA_AUTH_RESPONSE (auth response 2 of 2)
         response_string,response_id,response_type = getResponse(sock)
-            ## send SERVERDATA_EXECCOMMAND
+        ## send SERVERDATA_EXECCOMMAND
         sendMessage(sock, command_string, MESSAGE_TYPE_COMMAND)
-            ## get SERVERDATA_RESPONSE_VALUE (command response)
+        ## get SERVERDATA_RESPONSE_VALUE (command response)
         response_string,response_id,response_type = getResponse(sock)
         ## trim off null characters and new line
         response_txt = response_string.decode(encoding=('UTF-8'))[:-3]
@@ -268,39 +306,49 @@ def RCON_CLIENT(*args):
 
 def CHECK_PLAYERS():
     """Check if players are connected to server"""
-    chktimeout=12
-    while True:
-        if chktimeout > 0:
-            PLAYER_LIST = RCON_CLIENT('listplayers')
-            pattern = re.compile(".*[Nn]o.[Pp]layers.[Cc]onnected.*")
-            if pattern.search(PLAYER_LIST):
-                return False
-            else:
-                print(PLAYER_LIST)
-                time.sleep(20)
-                chktimeout -= 1
+    
+    pattern = re.compile(".*[Nn]o.[Pp]layers.[Cc]onnected.*")
+
+    PLAYER_LIST = RCON_CLIENT('listplayers')
+    if pattern.search(PLAYER_LIST):
+        return False
+    else:
+        return PLAYER_LIST
+        
+
+def PLAYER_MONITOR():
+    """Monitor which players are connected, if any"""
+    
+    chktimeout=9
+    while chktimeout > 0:
+        _ret = CHECK_PLAYERS()
+        if not _ret:
+            return True
         else:
-            sys.exit('Timeout waiting for users to log off')
+            print(_ret)
+            time.sleep(20)
+            chktimeout -= 1
+    else:
+        print('Timeout waiting for users to log off')
+        sys.exit(7)
 
 
 def SERV_LAUNCH():
     """Make temporary file so command can be called from there and will run independently from python script"""
     
     launchcmd = '''#!/bin/bash
-    {}/ShooterGame/Binaries/Linux/ShooterGameServer "{}?listen?MaxPlayers={}?QueryPort={}?Port={}?RCONEnabled={}?RCONPort={}?RCONServerGameLogBuffer=400?AllowRaidDinoFeeding=True?ForceFlyerExplosives=True -servergamelog -NoBattlEye -USEALLAVAILABLECORES" &
-    exit 0'''.format(SERV_ARK_INSTALLDIR, MAP, NPLAYERS, QUERY_PORT, SERV_PORT, RCON_ACTIVE, RCON_SERVER_PORT)
-    ## -usecache -server -automanagedmods ?PreventMateBoost ?PreventDownloadSurvivor=True?PreventDownloadDinos=True?PreventDownloadItems=True -ForceRespawnDinos
+    {}/ShooterGame/Binaries/Linux/ShooterGameServer "{}?listen?MaxPlayers={}?QueryPort={}?Port={}?RCONEnabled={}?RCONPort={}?RCONServerGameLogBuffer=400?ForceFlyerExplosives=True?PreventMateBoost -servergamelog -NoBattlEye -USEALLAVAILABLECORES" &
+    exit 0'''.format(SERV_ARK_INSTALLDIR, MAP, NPLAYERS, QUERY_PORT, SERV_PORT, RCON_ACTIVE, RCON_SERVER_PORT, RCON_PASSWORD)
+    ## -usecache -server -automanagedmods ?PreventDownloadSurvivor=True ?PreventDownloadDinos=True ?PreventDownloadItems=True ?ServerAdminPassword= ?AllowRaidDinoFeeding=True -ForceRespawnDinos -structurememopts
     
     tmpscript = tempfile.NamedTemporaryFile('wt')
     tmpscript.write(launchcmd)
-    ## 
     tmpscript.flush()
     
     subprocess.Popen(['/bin/bash', tmpscript.name],
         close_fds=True,
         preexec_fn=os.setsid,
         )
-    #subprocess.Popen(['/bin/bash', tmpscript.name], close_fds=True)
 
 
 def UPSERVER():
@@ -320,6 +368,7 @@ def DOWNSERVER():
         #RCON_CLIENT("do exit")
         SERV_PID = subprocess.run("/usr/bin/pgrep -x ShooterGameServ 2>/dev/null", stdout=subprocess.PIPE, shell=True).stdout.decode("utf-8")
         subprocess.run("kill -2 {}".format(SERV_PID), shell=True)
+        time.sleep(10)
     else:
         print("Unable to find running server to shutdown")
         return False
@@ -327,7 +376,7 @@ def DOWNSERVER():
     while True:
         if SERV_STATUS_CHK():
             print("Waiting for server to go down gracefully")
-            time.sleep(10)
+            time.sleep(5)
             downcounter -= 1
         else:
             print("Unable to find running server to shutdown")
@@ -344,9 +393,13 @@ def DOWNSERVER():
 
 
 def RESTART_SERVER():
-    RCON_CLIENT("broadcast Server going down for maintenance in 3 minutes")
+    """Check if no players connected, shutdown then start server"""
     
-    CHECK_PLAYERS()
+    if not CHECK_PLAYERS():
+        pass
+    else:
+        RCON_CLIENT("broadcast Server going down for maintenance in 3 minutes")
+        PLAYER_MONITOR()
     
     ITEM_MTIME = os.path.getmtime(r'{}/ShooterGame/Saved/SavedArks/{}.ark'.format(SERV_ARK_INSTALLDIR, MAP))
     RECENT_SAVE = (time.time() - ITEM_MTIME)
@@ -372,6 +425,7 @@ def RESTART_SERVER():
 
 def SERV_MONITOR():
     """Checks on status of server"""
+    
     ## Increase as needed, especially for community maps
     upcounter = 7
     if SERV_STATUS_CHK():
@@ -396,13 +450,15 @@ def SERV_MONITOR():
 
 def CHECK_SERV_UPDATE():
     """Check if update to server has been posted"""
-    ## fix for conflicting file that can prevent getting the most recent version
+    
+    ## workaround for conflicting file that can prevent getting the most recent version
     if os.path.isfile("{}/.steam/steam/appcache/appinfo.vdf".format(home)):
         os.remove("{}/.steam/steam/appcache/appinfo.vdf".format(home))
+    
     pattern = re.compile(r"[0-9]{7,}")
     ## See if update is available
     ## should return a byte object as b'\t\t"branches"\n\t\t{\n\t\t\t"public"\n\t\t\t{\n\t\t\t\t"buildid"\t\t"3129691"\n'
-    steamcmd = """/usr/games/steamcmd +login anonymous  +app_info_update 1 +app_info_print 376030 +quit | sed -n '/"branches"/,/"buildid"/p' """
+    steamcmd = """/usr/games/steamcmd +login anonymous +app_info_update 1 +app_info_print 376030 +quit | sed -n '/"branches"/,/"buildid"/p' """
     steam_out = subprocess.check_output(steamcmd, shell=True).decode("utf-8")
     new_vers = pattern.search(steam_out).group()
     
@@ -414,7 +470,8 @@ def CHECK_SERV_UPDATE():
     if int(new_vers) > int(curr_vers):
         return True
     elif int(new_vers) == int(curr_vers):
-         sys.exit("Server reports up-to-date")
+         print("Server reports up-to-date")
+         sys.exit()
         
 
 def UPDATE():
@@ -425,7 +482,7 @@ def UPDATE():
         while updatetimeout > 0:
             ## this is slow and times out occasionally
             subprocess.run("/usr/games/steamcmd +login anonymous +force_install_dir {} +app_update 376030 public validate +quit > {}".format(SERV_ARK_INSTALLDIR, tfp), shell=True)
-            ## poll until complete
+            ## poll until complete? WIP
             
             ## so we must verify it completed
             ## Escape {} for python using {{ }}
@@ -452,7 +509,7 @@ def SAVE_ACTIONS():
     def make_tarfile(output_filename, source_dir):
         with tarfile.open(output_filename, "w:gz") as tar:
             tar.add(source_dir, arcname=os.path.basename(source_dir))
-        
+    
     if not SERV_SAVE_DIR:
         sys.exit(11)
     tardir = "{}/{}-{}/".format(SERV_SAVE_DIR, MAP, CURR_DATE)
@@ -462,14 +519,17 @@ def SAVE_ACTIONS():
     except OSError as e:
         if e.errno != errno.EEXIST:
             sys.exit(11)
+    ## copy game config files to temp folder for tarball
     copy2("{}/ShooterGame/Saved/Config/LinuxServer/Game.ini".format(SERV_ARK_INSTALLDIR), "{}/".format(tardir))
     
     copy2("{}/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini".format(SERV_ARK_INSTALLDIR), "{}/".format(tardir))
     
+    ## copy map sace data to temp dir
     copy2("{}/ShooterGame/Saved/SavedArks/{}.ark".format(SERV_ARK_INSTALLDIR, MAP), "{}/{}_{}.ark".format(tardir, MAP, CURR_DATE))
     
     copy2("{}/ShooterGame/Saved/SavedArks/{}_AntiCorruptionBackup.bak".format(SERV_ARK_INSTALLDIR, MAP), "{}/".format(tardir, MAP))
     
+    ## copy player and tribe data to temp dir
     for file in glob.glob(r"{}/ShooterGame/Saved/SavedArks/*.arkprofile".format(SERV_ARK_INSTALLDIR)):
         copy2(file, "{}/".format(tardir))
     
@@ -491,6 +551,12 @@ def SAVE_ACTIONS():
 
 def FNC_DO_SAVE():
     """Archive map, player/tribe, and configuration files into a tarball"""
+    
+    #try:
+        #MAP = MAP_NAME
+    #except:
+        #pass
+        
     ITEM_MTIME = os.path.getmtime(r'{}/ShooterGame/Saved/SavedArks/{}.ark'.format(SERV_ARK_INSTALLDIR, MAP))
     RECENT_SAVE = (time.time() - ITEM_MTIME)
     if RECENT_SAVE <= 180:
@@ -522,6 +588,7 @@ def MOD_CLEANUP():
                 ACTIVE_MODS = line.split(',')
                 break
     ## Count through list and replace non-digit items with empty entry
+    ## \D is opposite of \d; matches any character which is not a decimal digit
     for i, id in enumerate(ACTIVE_MODS):
         ACTIVE_MODS[i] = re.sub(r"\D", "", id)
         
@@ -545,8 +612,7 @@ def MOD_CLEANUP():
 
 
 def EMAIL(content, subject):
-    import smtplib
-    import email.utils
+    import smtplib,email.utils
     from email.mime.text import MIMEText
     
     if not SERV_STATUS_CHK():
@@ -599,13 +665,131 @@ def EMAIL_STATS():
     EMAIL(f.read(), "Ark Server report as of {}".format(EMAIL_DATE))
     
     os.close(fd)
+    
+    
+def ESTB_CONN():
+    '''Function to capture packets looking for specific source session and find destination
+    
+    Similar to:
+    tcpdump udp src port ${ephemeral_port} -c 1 -s 80 -n
+    
+    Also like tcpdump, using this function (via --connections) will require root privileges. Add something like below to sudoers:
+    
+    user        ALL=(ALL:ALL)   NOPASSWD: /opt/bin/arkserv_mgmt_local.py
+    
+    And something like this to crontab:
+        
+    */3 * * * * sudo /opt/bin/arkserv_mgmt_local.py --connections
+    
+    '''
+    
+    import binascii,os
+    
+    capture_size = 80
+    class unpack:
+        '''see http://www.bitforestinfo.com/2017/01/how-to-write-simple-packet-sniffer.html'''
+        def __cinit__(self):
+            self.data=None
+        
+        ## IP Header Extraction
+        def ip_header(self, data):
+            storeobj=struct.unpack("!BBHHHBBH4s4s", data)
+            
+            _version=storeobj[0] 
+            _tos=storeobj[1]
+            _total_length =storeobj[2]
+            _identification =storeobj[3]
+            _fragment_Offset =storeobj[4]
+            _ttl =storeobj[5]
+            _protocol =storeobj[6]
+            _header_checksum =storeobj[7]
+            _source_address =socket.inet_ntoa(storeobj[8])
+            _destination_address =socket.inet_ntoa(storeobj[9])
+            
+            data={'Version':_version,
+            "Tos":_tos,
+            "Total Length":_total_length,
+            "Identification":_identification,
+            "Fragment":_fragment_Offset,
+            "TTL":_ttl,
+            "Protocol":_protocol,
+            "Header CheckSum":_header_checksum,
+            "Source Address":_source_address,
+            "Destination Address":_destination_address}
+            return data
+            
+        ## UDP Header Extraction
+        def udp_header(self, data):
+            storeobj=struct.unpack('!HHHH', data)
+            
+            _source_port = storeobj[0]
+            _dest_port = storeobj[1]
+            _length = storeobj[2]
+            _checksum = storeobj[3]
+            data={"Source Port":_source_port,
+            "Destination Port":_dest_port,
+            "Length":_length,
+            "CheckSum":_checksum}
+            return data
+            
+    def packet_selection(src_port):
+        '''From captured ethernet frame search the udp header containing the ephemeral ports in the list of ports'''
+        
+        target_src_pkt = 0
+        while target_src_pkt < 1:
+            # Capture packets from network
+            pkt = s.recvfrom(int(capture_size))
+            
+            # extract packets with the help of unpack class 
+            try:
+                udp_port = unpack().udp_header(pkt[0][34:42])["Source Port"]
+                if int(udp_port) == int(src_port):
+                    target_dst_addr = unpack().ip_header(pkt[0][14:34])["Destination Address"]
+                    target_src_pkt += 1
+            except:
+                raise Fatal('Issue unpacking capture')
+        return target_dst_addr
+  
+    ## GGP protocol, see /etc/protocols
+    s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003))
+    s.settimeout(2)
+
+    ## Generate list of open ports that are not for the base game but program contains ShooterGame
+    ports = subprocess.run("/bin/netstat -plne4 2>/dev/null | /usr/bin/awk '/.*\/ShooterGame.*/ && !/{}/ && !/{}/ && !/{}/ {{print $4}}' | /usr/bin/cut -d ':' -f 2 | /usr/bin/tr '\n' ' '".format(QUERY_PORT, SERV_PORT_B, RCON_SERVER_PORT), shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
+    port_list = ports.split()
+
+    with open(CONN_TRACK_FILE, 'r+') as f:
+        estb = f.readline()
+        if len(port_list) > int(estb):
+            conn_list = []
+            for i in port_list:
+                conn_ip = packet_selection(i)
+                conn_list.append(conn_ip)
+            print(conn_list)
+            EMAIL('\n'.join(conn_list), "New players connected")
+        else:
+            print('No new connections')
+            
+        f.seek(0)
+        f.write(str(len(port_list)))
+        f.truncate()
+    
+    s.shutdown()
+    s.close()
 
 
 #============================#
 ## Run get_args
-start, shutdown, restart, monitor, update, updateonly, cleanup, rcon, save, emailstats = get_args()
+start, shutdown, restart, monitor, update, updateonly, cleanup, rcon, save, emailstats, connections = get_args()
 
-if start:
+if rcon:
+    ## based on return of custom action, check if True to start interactively else run command
+    if isinstance(rcon, bool):
+        RCON_CLIENT()
+    else:
+        rcon_return = RCON_CLIENT(' '.join(rcon))
+        print(rcon_return)
+elif start:
     UPSERVER()
     SERV_MONITOR()
 elif shutdown:
@@ -627,12 +811,12 @@ elif updateonly:
     UPDATE()
 elif cleanup:
     MOD_CLEANUP()
-elif rcon:
-    RCON_CLIENT()
 elif save:
     FNC_DO_SAVE()
 elif emailstats:
     EMAIL_STATS()
+elif connections:
+    ESTB_CONN()
 else:
     print('No actions provided, none taken.')
     print('See help, --help, for usage')
